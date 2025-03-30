@@ -1,7 +1,22 @@
 services:
-  app:
-    build: .
+  backend:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
     ports:
       - "5000:5000"
+    volumes:
+      - ./backend:/app
     environment:
-      - .env
+      - FLASK_ENV=development
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - CHOKIDAR_USEPOLLING=true

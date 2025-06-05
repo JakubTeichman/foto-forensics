@@ -36,7 +36,7 @@ def compare_images():
 
 def extract_prnu(image_path):
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    denoised = cv2.medianBlur(image, 5)
+    denoised = cv2.medianBlur(image, 6)
     noise = cv2.subtract(image, denoised)
     return noise.astype(np.float32)
 

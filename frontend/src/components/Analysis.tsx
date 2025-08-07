@@ -7,7 +7,11 @@ interface AnalysisResults {
   regions: { x: number; y: number; width: number; height: number; confidence: number }[];
 }
 
-const Analysis: React.FC = () => {
+interface AnalysisProps {
+  setActiveTab?: (tab: string) => void; // funkcja opcjonalna do zmiany aktywnej zakładki
+}
+
+const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -26,7 +30,7 @@ const Analysis: React.FC = () => {
   };
 
   const handleAnalyze = () => {
-    // Tutaj symulujemy wyniki analizy – w rzeczywistości powinieneś podpiąć własne API.
+    // Symulacja wyników analizy – zastąp własnym API
     setAnalysisResults({
       metadata: {
         'Camera Model': 'Canon EOS 5D Mark IV',
@@ -45,6 +49,11 @@ const Analysis: React.FC = () => {
         { x: 450, y: 320, width: 180, height: 120, confidence: 0.87 },
       ],
     });
+
+    // Po analizie przełącz zakładkę (jeśli setActiveTab podano)
+    if (setActiveTab) {
+      setActiveTab('results'); // nazwa zakładki przykładowa, dostosuj wg potrzeb
+    }
   };
 
   return (
@@ -105,6 +114,8 @@ const Analysis: React.FC = () => {
                 setPreviewUrl(null);
                 setAnalysisResults(null);
                 setIsUploadOpen(false);
+                // Możesz tu też wywołać setActiveTab('upload') jeśli chcesz resetować zakładkę
+                if (setActiveTab) setActiveTab('upload');
               }}
               className="text-gray-400 hover:text-white"
             >
@@ -142,7 +153,7 @@ const Analysis: React.FC = () => {
               <div className="bg-gray-800 bg-opacity-70 rounded-lg p-6">
                 <h4 className="text-lg font-medium mb-4 text-teal-400">Analysis Results</h4>
 
-                <div className="mb-6">{/* Wykres manipulacji */} 
+                <div className="mb-6">
                   <ManipulationChart manipulationScore={analysisResults.manipulationScore} />
                 </div>
 

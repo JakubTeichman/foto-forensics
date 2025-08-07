@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from .config import Config
 from .routes import main
-from .demo import demo  # importuj blueprint
+from .demo import app as analisys  # importuj blueprint
 
 db = SQLAlchemy()
 
@@ -13,7 +13,7 @@ def create_app():
     
     app.config.from_object(Config)
     app.register_blueprint(main)
-    app.register_blueprint(demo)  # rejestruj blueprint
+    app.register_blueprint(analisys)  
     db.init_app(app)
 
     return app

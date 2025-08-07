@@ -1,9 +1,9 @@
 import sqlite3
 
-conn = sqlite3.connect("forensics.db")
+conn = sqlite3.connect("images.db")
 cursor = conn.cursor()
 
-with open("./create_images_table.sql", "r") as f:
+with open("create_images_table.sql", "r") as f:
     sql = f.read()
     cursor.executescript(sql)
 

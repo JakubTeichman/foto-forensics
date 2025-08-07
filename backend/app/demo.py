@@ -1,20 +1,24 @@
-from flask import Flask, request, jsonify, Blueprint
-import numpy as np
-import cv2
 import os
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from pathlib import Path
+import numpy as np
+
+# Dodaj katalog nadrzędny do sys.path
+import sys
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+# Importuj funkcje z zewnętrznego pliku
+from prnu_utils import extract_noise  # Użyjesz tej funkcji zamiast extract_prnu
 
 app = Flask(__name__)
-CORS(app)  # umożliwia połączenie z Reactem
-
-# Create blueprint - make sure this is at the module level
-demo = Blueprint('demo', __name__)
+CORS(app)
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@demo.route('/compare', methods=['POST'])
+@app.route('/compare', methods=['POST'])  # zmieniono na /app/...
 def compare_images():
     if 'image1' not in request.files or 'image2' not in request.files:
         return jsonify({'error': 'Missing files'}), 400
@@ -27,20 +31,18 @@ def compare_images():
     img1.save(path1)
     img2.save(path2)
 
-    prnu1 = extract_prnu(path1)
-    prnu2 = extract_prnu(path2)
+    # Przeczytaj obrazy jako numpy array
+    from skimage import io
+
+    image1 = io.imread(path1)
+    image2 = io.imread(path2)
+
+    prnu1 = extract_noise(image1)
+    prnu2 = extract_noise(image2)
 
     similarity = np.corrcoef(prnu1.flatten(), prnu2.flatten())[0, 1]
 
     return jsonify({'similarity': float(similarity)})
 
-def extract_prnu(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    denoised = cv2.medianBlur(image, 6)
-    noise = cv2.subtract(image, denoised)
-    return noise.astype(np.float32)
-
-app.register_blueprint(demo)
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

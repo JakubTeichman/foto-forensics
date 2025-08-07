@@ -1,6 +1,18 @@
-import React from 'react';
+import React, { FormEvent } from 'react';
 
-const Contact: React.FC = () => {
+interface ContactProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const Contact: React.FC<ContactProps> = ({ setActiveTab }) => {
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    // Tu możesz dodać logikę wysłania wiadomości np. fetch/axios
+
+    // Po wysłaniu formularza zmień zakładkę
+    setActiveTab('nextTab'); // podmień na właściwą nazwę zakładki docelowej
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
@@ -14,7 +26,7 @@ const Contact: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
           <h3 className="text-xl font-medium mb-6">Get in Touch</h3>
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {['Your Name', 'Email Address', 'Subject'].map((label, i) => (
               <div key={i}>
                 <label className="block text-sm font-medium mb-2">{label}</label>

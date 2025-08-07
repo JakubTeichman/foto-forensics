@@ -2,19 +2,23 @@ FROM node:18
 
 WORKDIR /app
 
-# Kopiuj pliki konfiguracyjne
+# Kopiuj tylko package.json i package-lock.json (jeśli masz)
 COPY package*.json ./
-COPY tsconfig.json ./
 
-# Instaluj zależności
+# Instaluj zależności (w tym react-scripts)
 RUN npm install
 
-# Kopiuj kod źródłowy
+# Kopiuj resztę plików projektu
 COPY . .
 
-# Buduj aplikację
+# Buduj aplikację (tworzy folder build)
 RUN npm run build
 
+# Globalnie instaluj serve tylko do serwowania builda
+RUN npm install -g serve
+
+# Otwórz port 3000
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Serwuj zbudowaną aplikację z folderu build
+CMD ["serve", "-s", "build", "-l", "3000"]

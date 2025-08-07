@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 
-const Collaborate: React.FC = () => {
+interface CollaborateProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const Collaborate: React.FC<CollaborateProps> = ({ setActiveTab }) => {
   const [formData, setFormData] = useState({
     name: '',
     deviceModel: '',
@@ -8,6 +12,14 @@ const Collaborate: React.FC = () => {
     email: '',
     format: 'jpg',
   });
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    // Tutaj można dodać logikę wysłania formularza (np. fetch / axios)
+
+    // Po wysłaniu zmieniamy aktywną zakładkę
+    setActiveTab('nextTab'); // podaj właściwą nazwę zakładki docelowej
+  };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -20,7 +32,7 @@ const Collaborate: React.FC = () => {
         </p>
       </div>
       <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           {[
             { label: 'Name', type: 'text', value: formData.name, key: 'name' },
             { label: 'Device Model', type: 'text', value: formData.deviceModel, key: 'deviceModel' },

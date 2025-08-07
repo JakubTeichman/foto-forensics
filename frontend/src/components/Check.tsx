@@ -1,24 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 
-const Check: React.FC = () => {
+interface CheckProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [image1, setImage1] = useState<File | null>(null);
   const [image2, setImage2] = useState<File | null>(null);
   const [previewUrl1, setPreviewUrl1] = useState<string | null>(null);
   const [previewUrl2, setPreviewUrl2] = useState<string | null>(null);
   const [similarity, setSimilarity] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const bothUploaded = image1 && image2;
 
+  // Ustaw aktywną zakładkę po wejściu na stronę
+  useEffect(() => {
+    setActiveTab('check');
+  }, [setActiveTab]);
+
   const handleCompare = async () => {
     if (!image1 || !image2) return;
+
+    setSimilarity(null);
+    setError(null);
 
     try {
       const formData = new FormData();
       formData.append('image1', image1);
       formData.append('image2', image2);
 
-      const response = await fetch('/compare', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+      const response = await fetch(`${apiUrl}/compare`, {
         method: 'POST',
         body: formData,
       });
@@ -28,10 +43,16 @@ const Check: React.FC = () => {
       }
 
       const data = await response.json();
-      setSimilarity(`${(data.similarity * 100).toFixed(2)}%`);
+
+      if (data.similarity !== undefined) {
+        const formatted = parseFloat(data.similarity).toFixed(5);
+        setSimilarity(`${formatted} (Pearson)`);
+      } else {
+        setError('Nie udało się obliczyć korelacji.');
+      }
     } catch (error) {
       console.error('Error:', error);
-      setSimilarity('Błąd podczas przesyłania plików');
+      setError('Wystąpił błąd podczas porównywania obrazów.');
     }
   };
 
@@ -45,6 +66,7 @@ const Check: React.FC = () => {
           Compare and analyze multiple images to detect differences and verify authenticity.
         </p>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ImageUploader
           title="Original Image"
@@ -67,14 +89,22 @@ const Check: React.FC = () => {
           <h3 className="text-xl font-medium mb-4 text-green-400">Comparison Report</h3>
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6">
             <div className="space-y-2 text-gray-300">
-              <p>File Size Difference: 1.2 MB</p>
-              <p>Resolution Match: 100%</p>
-              <p>Color Profile: sRGB</p>
+              <p>File Size Difference: —</p>
+              <p>Resolution Match: —</p>
+              <p>Color Profile: —</p>
             </div>
             <div className="space-y-2 text-gray-300">
-              <p>Modified Regions: None detected</p>
-              <p>Compression Level: Similar</p>
-              <p>Similarity Score (PRNU): {similarity ?? '---'}</p>
+              <p>Modified Regions: —</p>
+              <p>Compression Level: —</p>
+              <p>
+                Similarity Score (PRNU):{' '}
+                <span className="font-semibold text-green-400">
+                  {similarity ?? '---'}
+                </span>
+              </p>
+              {error && (
+                <p className="text-red-400 font-semibold">{error}</p>
+              )}
             </div>
             <div>
               <button

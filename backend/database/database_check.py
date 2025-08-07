@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect("forensics.db")
+conn = sqlite3.connect("images.db")
 cursor = conn.cursor()
 
 cursor.execute("PRAGMA table_info(images);")

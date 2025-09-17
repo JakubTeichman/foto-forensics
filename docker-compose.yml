@@ -1,25 +1,38 @@
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: forensics
+    volumes:
+      - db_data:/var/lib/mysql
     ports:
-      - "5000:5000"
+      - "3306:3306"
+
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: forensics
+      UPLOAD_BASE: /data/uploads
     volumes:
       - ./backend:/app
-    environment:
-      FLASK_ENV: development
+      - ./backend/uploads:/data/uploads
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
+    environment:
+      VITE_API_BASE: "http://localhost:5000/api"
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-    environment:
-      CHOKIDAR_USEPOLLING: true
-      VITE_API_URL: http://backend:5000
     depends_on:
       - backend
+
+volumes:
+  db_data:

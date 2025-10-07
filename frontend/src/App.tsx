@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './components/Home';
@@ -10,25 +10,23 @@ import Contact from './components/Contact';
 import Analysis from './components/Analysis';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('home'); // ← to dodaj
+  const [activeTab, setActiveTab] = useState<string>('home');
 
   return (
-    <Router>
-      <div className="min-h-screen bg-black text-white">
-        <Header />
-        <main className="pt-16">
-          <Routes>
-            <Route path="/" element={<Home setActiveTab={setActiveTab} />} />
-            <Route path="/about" element={<About setActiveTab={setActiveTab} />} />
-            <Route path="/check" element={<Check setActiveTab={setActiveTab} />} />
-            <Route path="/collaborate" element={<Collaborate setActiveTab={setActiveTab} />} />
-            <Route path="/contact" element={<Contact setActiveTab={setActiveTab} />} />
-            <Route path="/analysis" element={<Analysis setActiveTab={setActiveTab} />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </Router>
+    <div className="min-h-screen bg-black text-white">
+      <Header />
+      <main className="pt-16">
+        <Routes>
+          <Route path="/" element={<Home setActiveTab={setActiveTab} />} />
+          <Route path="/about" element={<About setActiveTab={setActiveTab} />} />
+          <Route path="/check" element={<Check setActiveTab={setActiveTab} />} />
+          <Route path="/collaborate" element={<Collaborate setActiveTab={setActiveTab} />} />
+          <Route path="/contact" element={<Contact setActiveTab={setActiveTab} />} />
+          <Route path="/analysis" element={<Analysis setActiveTab={setActiveTab} />} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
   );
 };
 

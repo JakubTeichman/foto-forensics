@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   mysql:
     image: mysql:8.0
@@ -28,7 +30,10 @@ services:
   frontend:
     build: ./frontend
     environment:
-      VITE_API_BASE: "http://localhost:5000/api"
+      REACT_APP_API_BASE: "http://backend:5000/api"
+    volumes:
+      - ./frontend:/app          # Kod frontendu na żywo
+      - /app/node_modules        # node_modules nie nadpisuje lokalnego
     ports:
       - "3000:3000"
     depends_on:

@@ -10,7 +10,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 # Importuj funkcje z zewnętrznego pliku
-from prnu_utils import extract_noise  # Użyjesz tej funkcji zamiast extract_prnu
+from .prnu_utils.prnu_extraction import extract_prnu_from_bytes  # Użyjesz tej funkcji zamiast extract_prnu
 
 app = Flask(__name__)
 CORS(app)
@@ -37,8 +37,8 @@ def compare_images():
     image1 = io.imread(path1)
     image2 = io.imread(path2)
 
-    prnu1 = extract_noise(image1)
-    prnu2 = extract_noise(image2)
+    prnu1 = extract_prnu_from_bytes(image1)
+    prnu2 = extract_prnu_from_bytes(image2)
 
     similarity = np.corrcoef(prnu1.flatten(), prnu2.flatten())[0, 1]
 

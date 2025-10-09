@@ -7,21 +7,20 @@ interface CheckProps {
 
 const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [image1, setImage1] = useState<File | null>(null);
-  const [image2, setImage2] = useState<File | null>(null);
+  const [images2, setImages2] = useState<File[]>([]);
   const [previewUrl1, setPreviewUrl1] = useState<string | null>(null);
-  const [previewUrl2, setPreviewUrl2] = useState<string | null>(null);
+  const [previewUrls2, setPreviewUrls2] = useState<string[]>([]);
   const [similarity, setSimilarity] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const bothUploaded = image1 && image2;
+  const bothUploaded = image1 && images2.length > 0;
 
-  // Ustaw aktywną zakładkę po wejściu na stronę
   useEffect(() => {
     setActiveTab('check');
   }, [setActiveTab]);
 
   const handleCompare = async () => {
-    if (!image1 || !image2) return;
+    if (!image1 || images2.length === 0) return;
 
     setSimilarity(null);
     setError(null);
@@ -29,18 +28,20 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     try {
       const formData = new FormData();
       formData.append('image1', image1);
-      formData.append('image2', image2);
+
+      // dodajemy wiele obrazów referencyjnych
+      images2.forEach((file, index) => {
+        formData.append('images2', file);
+      });
 
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-      const response = await fetch(`${apiUrl}/compare`, {
+      const response = await fetch(`${apiUrl}/compare-multiple`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
 
@@ -68,6 +69,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Obraz dowodowy (1 plik) */}
         <ImageUploader
           title="Original Image"
           previewUrl={previewUrl1}
@@ -75,13 +77,17 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
           setSelectedFile={setImage1}
           id="file1"
         />
+
         <ImageUploader
-          title="Comparison Image"
-          previewUrl={previewUrl2}
-          setPreviewUrl={setPreviewUrl2}
-          setSelectedFile={setImage2}
+          title="Reference Images"
+          multiple
+          previewUrls={previewUrls2}
+          setPreviewUrls={setPreviewUrls2}
+          setSelectedFiles={setImages2}
           id="file2"
+          maxVisible={8}  // np. pokazujemy 4 miniatury, reszta w +X
         />
+
       </div>
 
       {bothUploaded && (

@@ -1,10 +1,19 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface AboutProps {
   setActiveTab: (tab: string) => void;
 }
 
 const About: React.FC<AboutProps> = ({ setActiveTab }) => {
+  const navigate = useNavigate(); // <--- DODAJ TO
+
+  const handleStartAnalysis = () => {
+    setActiveTab('analysis');  // zostaw, żeby zachować spójność z resztą logiki
+    navigate('/analysis');     // <--- TO DODAJE PRAWDZIWE PRZEKIEROWANIE
+  };
+
+
   return (
     <div className="flex flex-col items-center">
       <div className="max-w-4xl text-center mb-12">
@@ -14,7 +23,7 @@ const About: React.FC<AboutProps> = ({ setActiveTab }) => {
           Our platform uses AI-powered algorithms to identify tampering and provide detailed reports.
         </p>
         <button
-          onClick={() => setActiveTab('analysis')}
+          onClick={handleStartAnalysis}
           className="bg-gradient-to-r from-teal-500 to-green-400 text-black font-bold px-8 py-3 rounded-full hover:from-teal-600 hover:to-green-500 transition-all"
         >
           Start Analysis

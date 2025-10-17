@@ -1,15 +1,17 @@
-version: "3.9"
-
 services:
   mysql:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: forensics
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
     volumes:
       - db_data:/var/lib/mysql
     ports:
       - "3306:3306"
+    restart: unless-stopped
+    networks:
+      - forensics-net
 
   backend:
     build: ./backend
@@ -26,18 +28,27 @@ services:
       - "5000:5000"
     depends_on:
       - mysql
+    restart: unless-stopped
+    networks:
+      - forensics-net
 
   frontend:
     build: ./frontend
     environment:
-      REACT_APP_API_BASE: "http://backend:5000/api"
+      REACT_APP_API_BASE: "http://localhost:5000/api"
     volumes:
-      - ./frontend:/app          # Kod frontendu na żywo
-      - /app/node_modules        # node_modules nie nadpisuje lokalnego
+      - ./frontend:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    restart: unless-stopped
+    networks:
+      - forensics-net
 
 volumes:
   db_data:
+
+networks:
+  forensics-net:

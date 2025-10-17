@@ -18,10 +18,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV FLASK_APP=app
+# ---- 🔧 Fix for BM3D threading crash ----
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+# ----------------------------------------
+
+ENV FLASK_APP=app:create_app
 ENV FLASK_ENV=development
 ENV FLASK_RUN_HOST=0.0.0.0
 
 EXPOSE 5000
 
-CMD ["flask", "run"]
+# Run Flask in single-threaded mode to avoid BM3D threading conflict
+CMD ["flask", "run", "--no-debugger", "--no-reload", "--without-threads"]

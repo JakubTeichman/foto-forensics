@@ -14,6 +14,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<boolean>(false);
   const [denoiseMethod, setDenoiseMethod] = useState<string>('bm3d');
+  const [loading, setLoading] = useState<boolean>(false); // 🔹 nowy stan
 
   const bothUploaded = image1 && images2.length > 0;
 
@@ -27,6 +28,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     setSimilarity(null);
     setError(null);
     setWarning(false);
+    setLoading(true); // 🔹 start loadera
 
     try {
       const formData = new FormData();
@@ -53,6 +55,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     } catch (error) {
       console.error('Error:', error);
       setError('Wystąpił błąd podczas porównywania obrazów.');
+    } finally {
+      setLoading(false); // 🔹 zakończ loader
     }
   };
 
@@ -117,11 +121,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               </span>
               The uploaded images have <strong>different resolutions</strong>, which may slightly reduce
               the precision of the <span className="text-green-300 font-semibold">PRNU similarity</span> result.
-              <br />
-              For optimal results, use images captured in the <strong>same resolution and camera settings</strong>.
             </div>
           )}
-
 
           {/* Wyniki i przycisk */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6">
@@ -132,22 +133,38 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               </p>
             </div>
 
-            <div className="space-y-2 text-gray-300">
-              <p>
-                Similarity Score (PRNU):{' '}
-                <span className="font-semibold text-green-400">
-                  {similarity ?? '---'}
-                </span>
-              </p>
-              {error && <p className="text-red-400 font-semibold">{error}</p>}
+            {/* 🔹 Sekcja wyników z loaderem */}
+            <div className="space-y-2 text-gray-300 flex items-center justify-center min-w-[200px] min-h-[60px]">
+              {loading ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 border-4 border-t-green-400 border-gray-700 rounded-full animate-spin"></div>
+                  <p className="text-green-400 mt-2 text-sm font-medium">Analyzing...</p>
+                </div>
+              ) : (
+                <>
+                  <p>
+                    Similarity Score (PRNU):{' '}
+                    <span className="font-semibold text-green-400">
+                      {similarity ?? '---'}
+                    </span>
+                  </p>
+                  {error && <p className="text-red-400 font-semibold">{error}</p>}
+                </>
+              )}
             </div>
 
+            {/* 🔹 Przycisk Compare */}
             <div>
               <button
                 onClick={handleCompare}
-                className="bg-gradient-to-r from-teal-500 to-green-400 text-black font-bold px-6 py-2 rounded-lg hover:from-teal-600 hover:to-green-500 transition-all"
+                disabled={loading}
+                className={`${
+                  loading
+                    ? 'bg-gray-700 cursor-not-allowed opacity-70'
+                    : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
+                } text-black font-bold px-6 py-2 rounded-lg transition-all`}
               >
-                Compare
+                {loading ? 'Processing...' : 'Compare'}
               </button>
             </div>
           </div>

@@ -9,7 +9,7 @@ def create_app():
 
     # Rejestrujemy główny blueprint z endpointami API
     app.register_blueprint(analyze_bp, url_prefix="/analyze")
-    app.register_blueprint(compare_bp, url_prefix="/compare")
+    app.register_blueprint(compare_bp)
 
     return app
 

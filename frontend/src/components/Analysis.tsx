@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import ManipulationChart from './ManipulationChart';
 import MetadataChart from './MetadataChart';
 
 interface AnalysisResults {
@@ -16,7 +15,12 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [hexData, setHexData] = useState<string | null>(null);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [isLoadingFullHex, setIsLoadingFullHex] = useState(false);
+  const [isFullHexVisible, setIsFullHexVisible] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -30,6 +34,10 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
+    setIsAnalyzing(true);
+    setShowReport(false);
+    setIsFullHexVisible(false);
+    setHexData(null);
 
     const formData = new FormData();
     formData.append('image', selectedFile);
@@ -43,20 +51,55 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
       const data = await res.json();
 
       if (res.ok) {
+        // ✅ Generowanie HEX (pierwsze 4KB)
+        const hexReader = new FileReader();
+        hexReader.onload = (event) => {
+          const buffer = event.target?.result as ArrayBuffer;
+          const bytes = new Uint8Array(buffer);
+          const hexString = Array.from(bytes)
+            .slice(0, 4096)
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join(' ');
+          setHexData(hexString);
+        };
+        hexReader.readAsArrayBuffer(selectedFile);
+
         setAnalysisResults({
           metadata: data,
           manipulationScore: 0,
           regions: [],
         });
+
+        setShowReport(true);
       } else {
         alert(data.error || 'Error analyzing image');
       }
     } catch (error) {
       console.error('Analysis error:', error);
       alert('Failed to analyze image');
+    } finally {
+      setIsAnalyzing(false);
     }
 
     if (setActiveTab) setActiveTab('results');
+  };
+
+  // ✅ Wczytanie pełnego zapisu HEX po kliknięciu przycisku
+  const handleShowFullHex = () => {
+    if (!selectedFile) return;
+    setIsLoadingFullHex(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const buffer = event.target?.result as ArrayBuffer;
+      const bytes = new Uint8Array(buffer);
+      const hexString = Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(' ');
+      setHexData(hexString);
+      setIsFullHexVisible(true);
+      setIsLoadingFullHex(false);
+    };
+    reader.readAsArrayBuffer(selectedFile);
   };
 
   return (
@@ -111,6 +154,8 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
                 setPreviewUrl(null);
                 setAnalysisResults(null);
                 setIsUploadOpen(false);
+                setHexData(null);
+                setShowReport(false);
                 if (setActiveTab) setActiveTab('upload');
               }}
               className="text-gray-400 hover:text-white"
@@ -120,79 +165,120 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Preview */}
+            {/* ✅ Left column: image + hex view */}
             <div>
               <div className="bg-black bg-opacity-50 rounded-lg overflow-hidden">
-                {previewUrl && <img src={previewUrl} alt="Selected" className="w-full h-auto object-contain max-h-[400px]" />}
-              </div>
-              <div className="mt-4 flex justify-between">
-                <div className="text-sm text-gray-400">
-                  <span className="font-medium text-white">{selectedFile.name}</span>
-                  <div>{Math.round(selectedFile.size / 1024)} KB</div>
-                </div>
-                {!analysisResults && (
-                  <button
-                    onClick={handleAnalyze}
-                    className="bg-gradient-to-r from-teal-500 to-green-400 text-black font-bold px-6 py-2 rounded-lg hover:from-teal-600 hover:to-green-500 transition-all"
-                  >
-                    <i className="fas fa-microscope mr-2"></i> Analyze
-                  </button>
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Selected"
+                    className="w-full h-auto object-contain max-h-[400px]"
+                  />
                 )}
               </div>
+
+              {/* ✅ Hex view (po analizie) */}
+              {showReport && hexData && (
+                <div className="bg-gray-950 mt-4 p-3 rounded-lg text-xs text-gray-300 max-h-72 overflow-auto font-mono border border-gray-800">
+                  <h4 className="text-teal-400 font-medium mb-2">
+                    {isFullHexVisible ? 'Full Hexadecimal View' : 'Hexadecimal View (first 4KB)'}
+                  </h4>
+                  <pre className="whitespace-pre-wrap break-all">{hexData}</pre>
+                </div>
+              )}
+
+              {/* ✅ Przycisk POD oknem z hexem */}
+              {showReport && hexData && !isFullHexVisible && (
+                <div className="text-center mt-3">
+                  <button
+                    onClick={handleShowFullHex}
+                    disabled={isLoadingFullHex}
+                    className={`${
+                      isLoadingFullHex
+                        ? 'bg-gray-700 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
+                    } text-black font-semibold px-4 py-2 rounded-lg text-sm transition-all`}
+                  >
+                    {isLoadingFullHex ? 'Loading full HEX...' : 'Show full HEX'}
+                  </button>
+                </div>
+              )}
+
+              {/* ✅ File info + analyze (tylko przed analizą) */}
+              {!showReport && (
+                <div className="mt-4 flex justify-between items-center">
+                  <div className="text-sm text-gray-400">
+                    <span className="font-medium text-white">{selectedFile.name}</span>
+                    <div>{Math.round(selectedFile.size / 1024)} KB</div>
+                  </div>
+
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className={`${
+                      isAnalyzing
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
+                    } text-black font-bold px-6 py-2 rounded-lg transition-all`}
+                  >
+                    {isAnalyzing ? (
+                      <span className="flex items-center gap-2">
+                        <i className="fas fa-spinner fa-spin"></i> Analyzing...
+                      </span>
+                    ) : (
+                      <>
+                        <i className="fas fa-microscope mr-2"></i> Analyze
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Results */}
-            {analysisResults && (
+            {/* ✅ Right column: metadata report */}
+            {showReport && analysisResults && (
               <div className="bg-gray-800 bg-opacity-70 rounded-lg p-6">
-                <h4 className="text-lg font-medium mb-4 text-teal-400">Analysis Results</h4>
-
                 <MetadataChart
-                  resolution={analysisResults.metadata['Resolution']}
-                  fileSize={analysisResults.metadata['File Size']}
-                  hasExif={Object.keys(analysisResults.metadata['EXIF Data'] || {}).length > 0}
-                  hasGps={analysisResults.metadata['GPS Info'] !== 'No GPS metadata found'}
+                  exifCount={Object.keys(analysisResults.metadata['EXIF Data'] || {}).length}
+                  gpsCount={Object.keys(analysisResults.metadata['GPS Info'] || {}).length}
                 />
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-6 mt-4 text-sm">
-                  {Object.entries(analysisResults.metadata).map(([key, value]) => (
-                    <div key={key} className="flex flex-col bg-gray-900 p-2 rounded-md">
-                      <span className="text-teal-400 font-medium mb-1">{key}</span>
-                      {typeof value === 'object' ? (
-                        <div className="text-xs text-gray-300 bg-gray-800 rounded-md p-2 overflow-auto max-h-32">
-                          {Object.entries(value).map(([subKey, subValue]) => (
-                            <div key={subKey} className="flex justify-between border-b border-gray-700 last:border-none py-0.5">
-                              <span className="text-gray-400">{subKey}</span>
-                              <span className="text-white ml-2">{String(subValue)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-white">{String(value)}</span>
-                      )}
+                <h4 className="text-lg font-medium mb-4 text-teal-400 mt-6">
+                  Metadata Report
+                </h4>
+
+                <div className="grid grid-cols-2 gap-2 mb-6">
+                  {['Filename', 'File Size', 'Format', 'Mode', 'Resolution'].map((label) => (
+                    <div key={label} className="bg-gray-900 p-2 rounded-md text-sm text-gray-300">
+                      <span className="text-teal-400 font-medium mr-2">{label}:</span>
+                      {label === 'Filename'
+                        ? selectedFile.name
+                        : String(analysisResults.metadata[label] || 'N/A')}
                     </div>
                   ))}
                 </div>
 
-                {/* Manipulations */}
-                <div>
-                  <h5 className="text-md font-medium mb-2 text-teal-400">Detected Manipulations</h5>
-                  <div className="bg-gray-900 rounded p-3 text-sm">
-                    {analysisResults.regions.length === 0 ? (
-                      <p className="text-gray-400 italic">No manipulations detected.</p>
-                    ) : (
-                      analysisResults.regions.map((region, index) => (
-                        <div key={index} className="mb-2 last:mb-0">
-                          <div className="flex justify-between mb-1">
-                            <span>Region {index + 1}</span>
-                            <span className="text-green-400">{Math.round(region.confidence * 100)}% confidence</span>
-                          </div>
-                          <div className="text-gray-400 text-xs">
-                            Position: x:{region.x}, y:{region.y}, w:{region.width}, h:{region.height}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {['EXIF Data', 'GPS Info'].map((section) => (
+                    <div key={section} className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto">
+                      <h5 className="text-teal-400 font-medium mb-2">{section}</h5>
+                      {typeof analysisResults.metadata[section] === 'object' &&
+                      Object.keys(analysisResults.metadata[section]).length > 0 ? (
+                        <table className="w-full text-xs text-gray-300">
+                          <tbody>
+                            {Object.entries(analysisResults.metadata[section]).map(([key, value]) => (
+                              <tr key={key} className="border-b border-gray-800">
+                                <td className="text-gray-400 pr-2">{key}</td>
+                                <td className="text-white">{String(value)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="text-gray-500 italic">No {section.toLowerCase()} found.</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

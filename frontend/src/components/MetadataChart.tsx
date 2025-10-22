@@ -1,3 +1,4 @@
+// src/components/MetadataChart.tsx
 import React, { useEffect } from 'react';
 import * as echarts from 'echarts';
 
@@ -12,14 +13,25 @@ const MetadataChart: React.FC<Props> = ({ exifCount, gpsCount }) => {
     if (!chartDom) return;
     const myChart = echarts.init(chartDom);
 
-    const total = exifCount + gpsCount;
-    const option: echarts.EChartsOption = {
+    const hasExif = exifCount > 0;
+    const hasGps = gpsCount > 0;
+
+    const data: { value: number; name: string }[] = [];
+    if (hasExif) data.push({ value: exifCount, name: 'EXIF Attributes' });
+    if (hasGps) data.push({ value: gpsCount, name: 'GPS Attributes' });
+    if (!hasExif && !hasGps) data.push({ value: 1, name: 'No Metadata' });
+
+    const option = {
       backgroundColor: 'transparent',
       title: {
         text: 'Metadata Attribute Distribution',
         left: 'center',
-        top: 10,
-        textStyle: { color: '#00e676', fontSize: 16 },
+        top: 5, // 📏 bliżej górnej krawędzi kontenera
+        textStyle: {
+          color: '#2dd4bf',
+          fontSize: 18,
+          fontWeight: '600',
+        },
       },
       tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
       series: [
@@ -27,6 +39,7 @@ const MetadataChart: React.FC<Props> = ({ exifCount, gpsCount }) => {
           name: 'Metadata Attributes',
           type: 'pie',
           radius: ['45%', '70%'],
+          top: 40, // 📏 dodany odstęp od tytułu
           avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 8,
@@ -39,11 +52,7 @@ const MetadataChart: React.FC<Props> = ({ exifCount, gpsCount }) => {
             color: '#fff',
             fontSize: 12,
           },
-          data: [
-            { value: exifCount, name: 'EXIF Attributes' },
-            { value: gpsCount, name: 'GPS Attributes' },
-            { value: total === 0 ? 1 : 0, name: total === 0 ? 'No Metadata' : '' },
-          ].filter((d) => d.name !== ''),
+          data,
         },
       ],
     };
@@ -52,7 +61,11 @@ const MetadataChart: React.FC<Props> = ({ exifCount, gpsCount }) => {
     return () => myChart.dispose();
   }, [exifCount, gpsCount]);
 
-  return <div id="metadataChart" className="w-full h-64"></div>;
+  return (
+    <div className="mt-6 mb-8">
+      <div id="metadataChart" className="w-full h-64" />
+    </div>
+  );
 };
 
 export default MetadataChart;

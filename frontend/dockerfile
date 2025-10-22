@@ -1,3 +1,4 @@
+# ===== FRONTEND DOCKERFILE =====
 FROM node:18
 
 WORKDIR /app
@@ -5,14 +6,13 @@ WORKDIR /app
 # Kopiujemy package.json i package-lock.json
 COPY package*.json ./
 
-# Instalujemy zależności
-RUN npm install
+# Instalacja WSZYSTKICH zależności (bez cache)
+RUN npm install --force
+RUN npm install react-leaflet@4.2.1 leaflet@1.9.4 @types/leaflet@1.9.21 --force
 
-# Kopiujemy resztę plików
+# Skopiowanie reszty kodu
 COPY . .
 
-# Otwieramy port 3000
 EXPOSE 3000
 
-# Start w trybie developerskim (hot reload + Tailwind CSS)
 CMD ["npm", "start", "--", "--host", "0.0.0.0"]

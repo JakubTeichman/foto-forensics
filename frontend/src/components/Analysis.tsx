@@ -51,7 +51,6 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
       const data = await res.json();
 
       if (res.ok) {
-        // ✅ Generowanie HEX (pierwsze 4KB)
         const hexReader = new FileReader();
         hexReader.onload = (event) => {
           const buffer = event.target?.result as ArrayBuffer;
@@ -84,7 +83,6 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
     if (setActiveTab) setActiveTab('results');
   };
 
-  // ✅ Wczytanie pełnego zapisu HEX po kliknięciu przycisku
   const handleShowFullHex = () => {
     if (!selectedFile) return;
     setIsLoadingFullHex(true);
@@ -102,11 +100,17 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
     reader.readAsArrayBuffer(selectedFile);
   };
 
+  const handleCopyHex = () => {
+    if (hexData) {
+      navigator.clipboard.writeText(hexData);
+      alert('✅ HEX copied to clipboard!');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto">
       <h2 className="text-3xl font-bold mb-8 text-teal-400">Image Analysis</h2>
 
-      {/* Upload panel */}
       {!isUploadOpen && !selectedFile && (
         <div className="flex flex-col items-center justify-center bg-gray-900 bg-opacity-50 rounded-xl p-12 border-2 border-dashed border-teal-700">
           <i className="fas fa-cloud-upload-alt text-5xl text-teal-500 mb-4"></i>
@@ -123,7 +127,6 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
         </div>
       )}
 
-      {/* File selection */}
       {isUploadOpen && !selectedFile && (
         <div className="bg-gray-900 rounded-xl p-8 border border-teal-800">
           <div className="flex justify-between items-center mb-6">
@@ -143,7 +146,6 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
         </div>
       )}
 
-      {/* Analysis view */}
       {selectedFile && (
         <div className="bg-gray-900 rounded-xl p-6 border border-teal-800">
           <div className="flex justify-between items-center mb-6">
@@ -165,46 +167,74 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* ✅ Left column: image + hex view */}
             <div>
               <div className="bg-black bg-opacity-50 rounded-lg overflow-hidden">
-                {previewUrl && (
-                  <img
-                    src={previewUrl}
-                    alt="Selected"
-                    className="w-full h-auto object-contain max-h-[400px]"
-                  />
-                )}
+                {previewUrl && <img src={previewUrl} alt="Selected" className="w-full h-auto object-contain max-h-[400px]" />}
               </div>
 
-              {/* ✅ Hex view (po analizie) */}
+              {/* ✅ HEX VIEW */}
               {showReport && hexData && (
-                <div className="bg-gray-950 mt-4 p-3 rounded-lg text-xs text-gray-300 max-h-72 overflow-auto font-mono border border-gray-800">
+                <div className="bg-gray-950 mt-4 p-3 rounded-lg text-xs text-gray-300 font-mono border border-gray-800">
                   <h4 className="text-teal-400 font-medium mb-2">
                     {isFullHexVisible ? 'Full Hexadecimal View' : 'Hexadecimal View (first 4KB)'}
                   </h4>
-                  <pre className="whitespace-pre-wrap break-all">{hexData}</pre>
+
+                  {/* ✅ Jeden scroll zamiast dwóch */}
+                  <div className="font-mono text-xs max-h-96 overflow-y-auto bg-gray-950 rounded-md border border-gray-800 p-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+                    <div className="flex text-gray-400 font-semibold mb-1 sticky top-0 bg-gray-950 pb-1">
+                      <div className="w-4/5">Hexadecimal</div>
+                      <div className="w-1/5 text-right">ASCII</div>
+                    </div>
+                    <div className="divide-y divide-gray-800">
+                      {(() => {
+                        const bytes = hexData.split(' ').filter((b) => b.length > 0);
+                        const lines = [];
+                        for (let i = 0; i < bytes.length; i += 16) {
+                          const chunk = bytes.slice(i, i + 16);
+                          const ascii = chunk
+                            .map((b) => {
+                              const code = parseInt(b, 16);
+                              return code >= 32 && code <= 126 ? String.fromCharCode(code) : '.';
+                            })
+                            .join('');
+                          lines.push(
+                            <div key={i} className="flex justify-between text-gray-300">
+                              <div className="w-4/5">{chunk.join(' ')}</div>
+                              <div className="w-1/5 text-right text-teal-400">{ascii}</div>
+                            </div>
+                          );
+                        }
+                        return lines;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* ✅ Przyciski pod HEX-em */}
+                  <div className="flex justify-center gap-3 mt-3">
+                    {!isFullHexVisible && (
+                      <button
+                        onClick={handleShowFullHex}
+                        disabled={isLoadingFullHex}
+                        className={`${
+                          isLoadingFullHex
+                            ? 'bg-gray-700 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
+                        } text-black font-semibold px-4 py-2 rounded-lg text-sm transition-all`}
+                      >
+                        {isLoadingFullHex ? 'Loading full HEX...' : 'Show full HEX'}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleCopyHex}
+                      className="bg-teal-700 hover:bg-teal-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-all"
+                    >
+                      <i className="fas fa-copy mr-2"></i> Copy HEX
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* ✅ Przycisk POD oknem z hexem */}
-              {showReport && hexData && !isFullHexVisible && (
-                <div className="text-center mt-3">
-                  <button
-                    onClick={handleShowFullHex}
-                    disabled={isLoadingFullHex}
-                    className={`${
-                      isLoadingFullHex
-                        ? 'bg-gray-700 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
-                    } text-black font-semibold px-4 py-2 rounded-lg text-sm transition-all`}
-                  >
-                    {isLoadingFullHex ? 'Loading full HEX...' : 'Show full HEX'}
-                  </button>
-                </div>
-              )}
-
-              {/* ✅ File info + analyze (tylko przed analizą) */}
               {!showReport && (
                 <div className="mt-4 flex justify-between items-center">
                   <div className="text-sm text-gray-400">
@@ -235,7 +265,7 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
               )}
             </div>
 
-            {/* ✅ Right column: metadata report */}
+            {/* ✅ Metadata */}
             {showReport && analysisResults && (
               <div className="bg-gray-800 bg-opacity-70 rounded-lg p-6">
                 <MetadataChart
@@ -243,9 +273,7 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
                   gpsCount={Object.keys(analysisResults.metadata['GPS Info'] || {}).length}
                 />
 
-                <h4 className="text-lg font-medium mb-4 text-teal-400 mt-6">
-                  Metadata Report
-                </h4>
+                <h4 className="text-lg font-medium mb-4 text-teal-400 mt-6">Metadata Report</h4>
 
                 <div className="grid grid-cols-2 gap-2 mb-6">
                   {['Filename', 'File Size', 'Format', 'Mode', 'Resolution'].map((label) => (
@@ -260,7 +288,7 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   {['EXIF Data', 'GPS Info'].map((section) => (
-                    <div key={section} className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto">
+                    <div key={section} className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       <h5 className="text-teal-400 font-medium mb-2">{section}</h5>
                       {typeof analysisResults.metadata[section] === 'object' &&
                       Object.keys(analysisResults.metadata[section]).length > 0 ? (

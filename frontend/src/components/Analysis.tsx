@@ -179,12 +179,12 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
                     {isFullHexVisible ? 'Full Hexadecimal View' : 'Hexadecimal View (first 4KB)'}
                   </h4>
 
-                  {/* ✅ Jeden scroll zamiast dwóch */}
                   <div className="font-mono text-xs max-h-96 overflow-y-auto bg-gray-950 rounded-md border border-gray-800 p-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
-                    <div className="flex text-gray-400 font-semibold mb-1 sticky top-0 bg-gray-950 pb-1">
+                    <div className="flex text-gray-300 font-semibold mb-1 sticky top-0 bg-gray-900/80 backdrop-blur-sm pb-1 border-b border-gray-800 shadow-sm">
                       <div className="w-4/5">Hexadecimal</div>
                       <div className="w-1/5 text-right">ASCII</div>
                     </div>
+
                     <div className="divide-y divide-gray-800">
                       {(() => {
                         const bytes = hexData.split(' ').filter((b) => b.length > 0);
@@ -286,7 +286,8 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                {/* ✅ EXIF + GPS w jednej kolumnie pod sobą */}
+                <div className="flex flex-col gap-4 mb-6">
                   {['EXIF Data', 'GPS Info'].map((section) => (
                     <div key={section} className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
                       <h5 className="text-teal-400 font-medium mb-2">{section}</h5>

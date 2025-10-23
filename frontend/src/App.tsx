@@ -8,6 +8,7 @@ import About from './components/About';
 import Collaborate from './components/Collaborate';
 import Contact from './components/Contact';
 import Analysis from './components/Analysis';
+import SteganoCompare from './components/SteganoCompare'; 
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -19,10 +20,11 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Home setActiveTab={setActiveTab} />} />
           <Route path="/about" element={<About setActiveTab={setActiveTab} />} />
-          <Route path="/check" element={<Check setActiveTab={setActiveTab} />} />
+          <Route path="/compare" element={<Check setActiveTab={setActiveTab} />} />
           <Route path="/collaborate" element={<Collaborate setActiveTab={setActiveTab} />} />
           <Route path="/contact" element={<Contact setActiveTab={setActiveTab} />} />
           <Route path="/analysis" element={<Analysis setActiveTab={setActiveTab} />} />
+          <Route path="/stegano-compare" element={<SteganoCompare setActiveTab={setActiveTab} />} />
         </Routes>
       </main>
       <Footer />

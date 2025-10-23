@@ -170,28 +170,21 @@ if (analysisResults?.metadata) {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold mb-8 text-teal-400 mt-3">Image Analysis</h2>
-
-      {/* --- Sekcja uploadu --- */}
-      {!isUploadOpen && !selectedFile && (
-        <div className="flex flex-col items-center justify-center bg-gray-900 bg-opacity-50 rounded-xl p-12 border-2 border-dashed border-teal-700">
-          <i className="fas fa-cloud-upload-alt text-5xl text-teal-500 mb-4"></i>
-          <h3 className="text-xl font-medium mb-2">Upload an image for forensic analysis</h3>
-          <p className="text-gray-400 mb-6 text-center max-w-lg">
-            We support JPEG, PNG, TIFF, and RAW formats. Your image will be analyzed for manipulation, metadata, and authenticity.
+      {/* 🔹 Nagłówek — pokazuje się tylko, gdy nie ma uploadu */}
+      { !selectedFile && (
+        <div className="text-center mb-12 mt-8">
+          <h2 className="text-5xl font-bold mb-4 pb-1 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
+            Image Analysis
+          </h2>
+          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+            Upload your image to begin forensic examination for authenticity and hidden traces.
           </p>
-          <button
-            onClick={() => setIsUploadOpen(true)}
-            className="bg-teal-600 hover:bg-teal-700 px-6 py-3 rounded-lg transition-colors"
-          >
-            <i className="fas fa-upload mr-2"></i> Upload Image
-          </button>
         </div>
       )}
 
       {/* --- Sekcja wyboru pliku --- */}
-      {isUploadOpen && !selectedFile && (
-        <div className="bg-gray-900 rounded-xl p-8 border border-teal-800">
+      { !selectedFile && (
+        <div className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-xl font-medium">Select Image File</h3>
             <button onClick={() => setIsUploadOpen(false)} className="text-gray-400 hover:text-white">
@@ -211,7 +204,7 @@ if (analysisResults?.metadata) {
 
       {/* --- Sekcja analizy --- */}
       {selectedFile && (
-        <div className="bg-gray-900 rounded-xl p-6 border border-teal-800">
+        <div className="bg-gray-900 rounded-xl p-6 border border-teal-800 mt-6 mb-4">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-medium">Image Analysis</h3>
             <button

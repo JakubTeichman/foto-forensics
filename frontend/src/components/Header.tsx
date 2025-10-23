@@ -26,8 +26,10 @@ const Header: React.FC = () => {
           <nav className="flex-1 ml-8">
             <ul className="flex space-x-8">
               {[
-                { name: 'Check', path: '/check' },
                 { name: 'About', path: '/about' },
+                { name: 'Compare', path: '/compare' },
+                { name: 'Stegano', path: '/stegano-compare' },  
+                { name: 'Analysis', path: '/analysis' },
                 { name: 'Collaborate', path: '/collaborate' },
                 { name: 'Contact', path: '/contact' },
               ].map(({ name, path }) => (

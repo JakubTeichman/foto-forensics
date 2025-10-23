@@ -15,12 +15,13 @@ const About: React.FC<AboutProps> = ({ setActiveTab }) => {
 
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center mt-8"> {/* 🔹 odstęp od góry */}
       <div className="max-w-4xl text-center mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-teal-400">Advanced Photo Forensics Analysis</h2>
+        <h2 className="text-3xl font-bold mb-6 text-teal-400 leading-tight">
+          Advanced Photo Forensics Analysis
+        </h2>
         <p className="text-lg text-gray-300 mb-8">
           Detect image manipulation, analyze metadata, and verify authenticity with our state-of-the-art forensic tools.
-          Our platform uses AI-powered algorithms to identify tampering and provide detailed reports.
         </p>
         <button
           onClick={handleStartAnalysis}

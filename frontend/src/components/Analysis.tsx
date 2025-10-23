@@ -170,7 +170,7 @@ if (analysisResults?.metadata) {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold mb-8 text-teal-400">Image Analysis</h2>
+      <h2 className="text-3xl font-bold mb-8 text-teal-400 mt-3">Image Analysis</h2>
 
       {/* --- Sekcja uploadu --- */}
       {!isUploadOpen && !selectedFile && (
@@ -192,7 +192,7 @@ if (analysisResults?.metadata) {
       {/* --- Sekcja wyboru pliku --- */}
       {isUploadOpen && !selectedFile && (
         <div className="bg-gray-900 rounded-xl p-8 border border-teal-800">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-3">
             <h3 className="text-xl font-medium">Select Image File</h3>
             <button onClick={() => setIsUploadOpen(false)} className="text-gray-400 hover:text-white">
               <i className="fas fa-times"></i>

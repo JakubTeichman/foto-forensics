@@ -14,9 +14,9 @@ const Contact: React.FC<ContactProps> = ({ setActiveTab }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto mt-8"> {/* 🔹 odstęp od góry */}
       <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400">
+        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Contact Us
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">

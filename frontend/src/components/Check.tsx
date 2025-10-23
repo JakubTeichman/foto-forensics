@@ -61,16 +61,17 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto mt-8"> {/* 🔹 odstęp od góry */}
       {/* Nagłówek */}
       <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400">
+        <h2 className="text-5xl font-bold mb-4 pb-1 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Image Comparison
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
           Compare and analyze multiple images to detect differences and verify authenticity.
         </p>
       </div>
+
 
       {/* Uploader */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

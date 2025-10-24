@@ -183,24 +183,40 @@ if (analysisResults?.metadata) {
       )}
 
       {/* --- Sekcja wyboru pliku --- */}
-      { !selectedFile && (
-        <div className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4">
+      {!selectedFile && (
+        <div
+          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileChange({ target: { files: [file] } } as any);
+          }}
+        >
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-medium">Select Image File</h3>
+            <h3 className="text-xl font-medium text-teal-400">Select Image File</h3>
             <button onClick={() => setIsUploadOpen(false)} className="text-gray-400 hover:text-white">
               <i className="fas fa-times"></i>
             </button>
           </div>
-          <div className="border-2 border-dashed border-teal-700 rounded-lg p-8 text-center">
-            <input type="file" id="fileUpload" className="hidden" accept="image/*" onChange={handleFileChange} />
+
+          <div className="border-2 border-dashed border-teal-700 rounded-lg p-8 text-center hover:border-teal-500 transition-colors">
+            <input
+              type="file"
+              id="fileUpload"
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
             <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">
               <i className="fas fa-file-image text-4xl text-teal-500 mb-4"></i>
-              <span className="text-lg mb-2">Drag and drop or click to browse</span>
+              <span className="text-lg mb-2 text-gray-200">Drag and drop or click to browse</span>
               <span className="text-sm text-gray-400">Maximum file size: 50MB</span>
             </label>
           </div>
         </div>
       )}
+
 
       {/* --- Sekcja analizy --- */}
       {selectedFile && (

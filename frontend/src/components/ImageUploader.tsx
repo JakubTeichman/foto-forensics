@@ -58,20 +58,26 @@ const ImageUploader: React.FC<Props> = ({
     if (e.target.files) handleFiles(e.target.files);
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files);
     }
   };
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => setIsDragging(false);
+  const handleDragLeave = (e: DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
 
   return (
     <div className="bg-gray-900 rounded-xl p-8 border border-teal-800 shadow-lg">
@@ -108,7 +114,13 @@ const ImageUploader: React.FC<Props> = ({
               )}
             </div>
           ) : (
-            <label htmlFor={id} className="cursor-pointer flex flex-col items-center">
+            <label
+              htmlFor={id}
+              className="cursor-pointer flex flex-col items-center w-full"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <i className="fas fa-file-image text-5xl text-teal-500 mb-4"></i>
               <span className="text-lg mb-2">Drag & drop or click to upload images</span>
               <span className="text-sm text-gray-400">You can select multiple files</span>
@@ -129,7 +141,13 @@ const ImageUploader: React.FC<Props> = ({
             className="max-h-[300px] mx-auto rounded-lg border border-gray-700"
           />
         ) : (
-          <label htmlFor={id} className="cursor-pointer flex flex-col items-center">
+          <label
+            htmlFor={id}
+            className="cursor-pointer flex flex-col items-center w-full"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <i className="fas fa-file-image text-5xl text-teal-500 mb-4"></i>
             <span className="text-lg mb-2">Drag & drop or click to upload image</span>
             <span className="text-sm text-gray-400">Supported: JPG, PNG, TIFF, RAW</span>

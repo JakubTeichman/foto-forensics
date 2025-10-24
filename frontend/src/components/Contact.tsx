@@ -59,17 +59,12 @@ const Contact: React.FC<ContactProps> = ({ setActiveTab }) => {
               {
                 icon: 'fas fa-map-marker-alt',
                 label: 'Address',
-                text: '123 Tech Boulevard, Suite 456\nSan Francisco, CA 94107',
+                text: 'Kraków\nPoland',
               },
               {
                 icon: 'fas fa-envelope',
                 label: 'Email',
-                text: 'info@fotoforensics.com\nsupport@fotoforensics.com',
-              },
-              {
-                icon: 'fas fa-phone-alt',
-                label: 'Phone',
-                text: '+1 (555) 123-4567\n+1 (555) 987-6543',
+                text: 'fotoforensics3@gmial.com',
               },
             ].map((item, i) => (
               <div key={i} className="flex items-start">

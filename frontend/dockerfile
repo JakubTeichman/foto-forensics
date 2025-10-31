@@ -3,16 +3,17 @@ FROM node:18
 
 WORKDIR /app
 
-# Kopiujemy package.json i package-lock.json
+# Kopiujemy package.json i package-lock.json jako pierwszy krok
 COPY package*.json ./
 
-# Instalacja WSZYSTKICH zależności (bez cache)
+# Instalacja WSZYSTKICH zależności (jednorazowo)
 RUN npm install --force
-RUN npm install react-leaflet@4.2.1 leaflet@1.9.4 @types/leaflet@1.9.21 --force
 
-# Skopiowanie reszty kodu
+# Teraz dopiero kopiujemy resztę projektu
 COPY . .
 
+# Port aplikacji React
 EXPOSE 3000
 
+# Uruchomienie dev servera
 CMD ["npm", "start", "--", "--host", "0.0.0.0"]

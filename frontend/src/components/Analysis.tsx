@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
+import CheckSumBox from './CheckSumPanel';
 
 interface AnalysisResults {
   metadata: { [key: string]: any };
@@ -246,6 +247,9 @@ if (analysisResults?.metadata) {
                 {previewUrl && <img src={previewUrl} alt="Selected" className="w-full h-auto object-contain max-h-[400px]" />}
               </div>
 
+              {/* ✅ Sumy kontrolne pliku */}
+              <CheckSumBox files={selectedFile ? [selectedFile] : []} />
+
               {/* ✅ HEX VIEW */}
               {showReport && hexData && (
                 <div className="bg-gray-950 mt-4 p-3 rounded-lg text-xs text-gray-300 font-mono border border-gray-800">
@@ -338,7 +342,7 @@ if (analysisResults?.metadata) {
 
             {/* --- Raport metadanych --- */}
             {showReport && analysisResults && (
-              <div className="bg-gray-800 bg-opacity-70 rounded-lg p-6">
+              <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6">
                 <MetadataChart
                   exifCount={Object.keys(analysisResults.metadata['EXIF Data'] || {}).length}
                   gpsCount={

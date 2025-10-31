@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
+import CheckSumPanel from './CheckSumPanel'; // ✅ poprawiona nazwa
 
 interface SteganoCompareProps {
   setActiveTab: (tab: string) => void;
@@ -48,15 +49,20 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
         />
       </div>
 
-      {/* Placeholder na przyszły raport */}
+      {/* Sekcja sum kontrolnych */}
       {bothUploaded && (
-        <div className="mt-12 bg-gray-900/70 rounded-xl p-6 border border-green-900 shadow-lg shadow-green-900/20 backdrop-blur-md text-center text-gray-300">
-          <p className="text-green-400 font-semibold text-lg">
-            ✅ Both images uploaded successfully!
-          </p>
-          <p className="text-gray-400 mt-2">
-            The steganography comparison module will appear here soon.
-          </p>
+        <div className="mt-12 space-y-8">
+          <div className="bg-gray-900/70 rounded-xl p-6 border border-green-900 shadow-lg shadow-green-900/20 backdrop-blur-md text-center text-gray-300">
+            <p className="text-green-400 font-semibold text-lg">
+              ✅ Both images uploaded successfully!
+            </p>
+            <p className="text-gray-400 mt-2">
+              Below are the calculated checksums for both files.
+            </p>
+          </div>
+
+          {/* ✅ użycie Twojego komponentu z tablicą plików */}
+          <CheckSumPanel files={[image1, image2].filter(Boolean) as File[]} />
         </div>
       )}
     </div>

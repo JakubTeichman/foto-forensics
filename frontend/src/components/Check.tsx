@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
+import ChecksumPanel from './CheckSumPanel'; // ✅ importujemy nowy komponent
 
 interface CheckProps {
   setActiveTab: (tab: string) => void;
@@ -14,7 +15,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<boolean>(false);
   const [denoiseMethod, setDenoiseMethod] = useState<string>('bm3d');
-  const [loading, setLoading] = useState<boolean>(false); // 🔹 nowy stan
+  const [loading, setLoading] = useState<boolean>(false);
 
   const bothUploaded = image1 && images2.length > 0;
 
@@ -28,7 +29,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     setSimilarity(null);
     setError(null);
     setWarning(false);
-    setLoading(true); // 🔹 start loadera
+    setLoading(true);
 
     try {
       const formData = new FormData();
@@ -56,13 +57,13 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
       console.error('Error:', error);
       setError('Wystąpił błąd podczas porównywania obrazów.');
     } finally {
-      setLoading(false); // 🔹 zakończ loader
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto mt-8"> {/* 🔹 odstęp od góry */}
-      {/* Nagłówek */}
+    <div className="max-w-6xl mx-auto mt-8">
+      {/* 🔹 Nagłówek */}
       <div className="text-center mb-12">
         <h2 className="text-5xl font-bold mb-4 pb-1 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Image Comparison
@@ -72,8 +73,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
         </p>
       </div>
 
-
-      {/* Uploader */}
+      {/* 🔹 Uploadery */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ImageUploader
           title="Original Image"
@@ -94,12 +94,12 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
         />
       </div>
 
-      {/* Panel wyników */}
+      {/* 🔹 Panel raportu */}
       {bothUploaded && (
         <div className="mt-8 bg-gray-900/70 rounded-xl p-6 border border-green-900 shadow-lg shadow-green-900/20 backdrop-blur-md">
           <h3 className="text-xl font-medium mb-6 text-green-400">Comparison Report</h3>
 
-          {/* Select metody denoisingu */}
+          {/* Metoda odszumiania */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Denoising Method:
@@ -114,7 +114,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
             </select>
           </div>
 
-          {/* Ostrzeżenie o rozdzielczości */}
+          {/* Ostrzeżenie */}
           {warning && (
             <div className="mt-6 mb-8 p-5 rounded-2xl bg-emerald-900/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium backdrop-blur-md shadow-inner shadow-emerald-900/30">
               <span className="block text-base font-semibold mb-2 text-emerald-400">
@@ -134,7 +134,6 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               </p>
             </div>
 
-            {/* 🔹 Sekcja wyników z loaderem */}
             <div className="space-y-2 text-gray-300 flex items-center justify-center min-w-[200px] min-h-[60px]">
               {loading ? (
                 <div className="flex flex-col items-center">
@@ -154,7 +153,6 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               )}
             </div>
 
-            {/* 🔹 Przycisk Compare */}
             <div>
               <button
                 onClick={handleCompare}
@@ -170,6 +168,11 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✅ Panel sum kontrolnych — tylko dla obrazu źródłowego */}
+      {image1 && (
+        <ChecksumPanel files={[image1]} />
       )}
     </div>
   );

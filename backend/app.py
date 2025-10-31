@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes.analyze_routes import analyze_bp
 from routes.compare_routes import compare_bp
+from routes.steganography_routes import steganography_bp
 
 def create_app():
     app = Flask(__name__)
@@ -9,6 +10,7 @@ def create_app():
 
     # Rejestrujemy główny blueprint z endpointami API
     app.register_blueprint(analyze_bp, url_prefix="/analyze")
+    app.register_blueprint(steganography_bp)   
     app.register_blueprint(compare_bp)
 
     return app

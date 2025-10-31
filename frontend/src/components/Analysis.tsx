@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
+import SteganoReport from './SteganoReport';
 
 interface AnalysisResults {
   metadata: { [key: string]: any };
@@ -402,6 +403,12 @@ if (analysisResults?.metadata) {
                       </div>
                     </div>
                   )}
+                  
+                  {/* --- Raport steganograficzny --- */}
+                    {selectedFile && (
+                      <SteganoReport image={selectedFile} />
+                    )}
+
                 </div>
               </div>
             )}

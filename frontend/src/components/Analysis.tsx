@@ -242,10 +242,16 @@ if (analysisResults?.metadata) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* --- Podgląd + HEX --- */}
+            {/* --- LEWA KOLUMNA — podgląd + HEX --- */}
             <div>
               <div className="bg-black bg-opacity-50 rounded-lg overflow-hidden">
-                {previewUrl && <img src={previewUrl} alt="Selected" className="w-full h-auto object-contain max-h-[400px]" />}
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Selected"
+                    className="w-full h-auto object-contain max-h-[400px]"
+                  />
+                )}
               </div>
 
               {/* ✅ Sumy kontrolne pliku */}
@@ -255,7 +261,7 @@ if (analysisResults?.metadata) {
               {showReport && hexData && (
                 <div className="bg-gray-950 mt-4 p-3 rounded-lg text-xs text-gray-300 font-mono border border-gray-800">
                   <h4 className="text-teal-400 font-medium mb-2">
-                    {isFullHexVisible ? 'Full Hexadecimal View' : 'Hexadecimal View (first 4KB)'}
+                    {isFullHexVisible ? "Full Hexadecimal View" : "Hexadecimal View (first 4KB)"}
                   </h4>
 
                   <div className="font-mono text-xs max-h-96 overflow-y-auto bg-gray-950 rounded-md border border-gray-800 p-2">
@@ -265,19 +271,19 @@ if (analysisResults?.metadata) {
                     </div>
                     <div className="divide-y divide-gray-800">
                       {(() => {
-                        const bytes = hexData.split(' ').filter((b) => b.length > 0);
+                        const bytes = hexData.split(" ").filter((b) => b.length > 0);
                         const lines = [];
                         for (let i = 0; i < bytes.length; i += 16) {
                           const chunk = bytes.slice(i, i + 16);
                           const ascii = chunk
                             .map((b) => {
                               const code = parseInt(b, 16);
-                              return code >= 32 && code <= 126 ? String.fromCharCode(code) : '.';
+                              return code >= 32 && code <= 126 ? String.fromCharCode(code) : ".";
                             })
-                            .join('');
+                            .join("");
                           lines.push(
                             <div key={i} className="flex justify-between text-gray-300">
-                              <div className="w-4/5">{chunk.join(' ')}</div>
+                              <div className="w-4/5">{chunk.join(" ")}</div>
                               <div className="w-1/5 text-right text-teal-400">{ascii}</div>
                             </div>
                           );
@@ -294,11 +300,11 @@ if (analysisResults?.metadata) {
                         disabled={isLoadingFullHex}
                         className={`${
                           isLoadingFullHex
-                            ? 'bg-gray-700 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
+                            ? "bg-gray-700 cursor-not-allowed"
+                            : "bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500"
                         } text-black font-semibold px-4 py-2 rounded-lg text-sm transition-all`}
                       >
-                        {isLoadingFullHex ? 'Loading full HEX...' : 'Show full HEX'}
+                        {isLoadingFullHex ? "Loading full HEX..." : "Show full HEX"}
                       </button>
                     )}
                     <button
@@ -310,12 +316,16 @@ if (analysisResults?.metadata) {
                   </div>
                 </div>
               )}
+            </div>
 
+            {/* --- PRAWA KOLUMNA — przycisk Analyze i raport --- */}
+            <div className="flex flex-col justify-start">
+              {/* 🔹 Przyciski i podsumowanie pliku */}
               {!showReport && (
-                <div className="mt-4 flex justify-between items-center">
-                  <div className="text-sm text-gray-400">
-                    <span className="font-medium text-white">{selectedFile.name}</span>
-                    <div>{Math.round(selectedFile.size / 1024)} KB</div>
+                <div className="flex flex-col items-center justify-center mt-10 gap-6">
+                  <div className="text-center text-gray-400">
+                    <span className="block font-semibold text-white text-lg">{selectedFile.name}</span>
+                    <span className="text-sm">{Math.round(selectedFile.size / 1024)} KB</span>
                   </div>
 
                   <button
@@ -323,96 +333,95 @@ if (analysisResults?.metadata) {
                     disabled={isAnalyzing}
                     className={`${
                       isAnalyzing
-                        ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
-                    } text-black font-bold px-6 py-2 rounded-lg transition-all`}
+                        ? "bg-gray-700 cursor-not-allowed"
+                        : "bg-gradient-to-r from-teal-400 to-green-400 hover:from-teal-500 hover:to-green-500"
+                    } text-black font-bold text-lg px-10 py-4 rounded-xl shadow-lg hover:shadow-teal-500/30 transform hover:scale-105 transition-all duration-300`}
                   >
                     {isAnalyzing ? (
-                      <span className="flex items-center gap-2">
-                        <i className="fas fa-spinner fa-spin"></i> Analyzing...
+                      <span className="flex items-center gap-3">
+                        <i className="fas fa-spinner fa-spin text-xl"></i> Analyzing...
                       </span>
                     ) : (
-                      <>
-                        <i className="fas fa-microscope mr-2"></i> Analyze
-                      </>
+                      <span className="flex items-center gap-3">
+                        <i className="fas fa-microscope text-xl"></i> Start Analysis
+                      </span>
                     )}
                   </button>
                 </div>
               )}
-            </div>
 
-            {/* --- Raport metadanych --- */}
-            {showReport && analysisResults && (
-              <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6">
-                <MetadataChart
-                  exifCount={Object.keys(analysisResults.metadata['EXIF Data'] || {}).length}
-                  gpsCount={
-                    Object.entries(analysisResults.metadata['GPS Info'] || {}).filter(
+              {/* --- Raport metadanych --- */}
+              {showReport && analysisResults && (
+                <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6 mt-6">
+                  {(() => {
+                    const exifCount = Object.keys(analysisResults.metadata["EXIF Data"] || {}).length;
+                    const gpsCount = Object.entries(analysisResults.metadata["GPS Info"] || {}).filter(
                       ([key, value]) =>
-                        key.toUpperCase().includes('GPS') && value && value !== '0' && value !== '[]' && value !== 'No GPS data detected'
-                    ).length
-                  }
-                />
-                
-                <h4 className="text-lg font-medium mb-4 text-teal-400 mt-6">Metadata Report</h4>
+                        key.toUpperCase().includes("GPS") &&
+                        value &&
+                        value !== "0" &&
+                        value !== "[]" &&
+                        value !== "No GPS data detected"
+                    ).length;
 
-                {/* --- Informacje ogólne --- */}
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                  {['Filename', 'File Size', 'Format', 'Mode', 'Resolution'].map((label) => (
-                    <div key={label} className="bg-gray-900 p-2 rounded-md text-sm text-gray-300">
-                      <span className="text-teal-400 font-medium mr-2">{label}:</span>
-                      {label === 'Filename'
-                        ? selectedFile.name
-                        : String(analysisResults.metadata[label] || 'N/A')}
-                    </div>
-                  ))}
-                </div>
+                    if (exifCount === 0 && gpsCount === 0) return null;
+                    return <MetadataChart exifCount={exifCount} gpsCount={gpsCount} />;
+                  })()}
 
-                {/* --- Sekcje EXIF + GPS --- */}
-                <div className="flex flex-col gap-4 mb-6">
-                  {['EXIF Data', 'GPS Info'].map((section) => (
-                    <div
-                      key={section}
-                      className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"
-                    >
-                      <h5 className="text-teal-400 font-medium mb-2">{section}</h5>
-                      {typeof analysisResults.metadata[section] === 'object' &&
-                      Object.keys(analysisResults.metadata[section]).length > 0 ? (
-                        <table className="w-full text-xs text-gray-300">
-                          <tbody>
-                            {Object.entries(analysisResults.metadata[section]).map(([key, value]) => (
-                              <tr key={key} className="border-b border-gray-800">
-                                <td className="text-gray-400 pr-2">{key}</td>
-                                <td className="text-white">{String(value)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="text-gray-500 italic">No {section.toLowerCase()} found.</p>
-                      )}
-                    </div>
-                  ))}
+                  <h4 className="text-lg font-medium mb-4 text-teal-400 mt-6">Metadata Report</h4>
 
-                  {/* ✅ Mapa GPS (jeśli są współrzędne) */}
-                  {lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (
-                    <div className="mt-4">
-                      <h5 className="text-teal-400 font-medium mb-2">Location Preview</h5>
-                      <div className="h-64 w-full rounded-lg overflow-hidden border border-teal-700">
-                        <GpsMap lat={lat} lon={lon} />
+                  <div className="grid grid-cols-2 gap-2 mb-6">
+                    {["Filename", "File Size", "Format", "Mode", "Resolution"].map((label) => (
+                      <div key={label} className="bg-gray-900 p-2 rounded-md text-sm text-gray-300">
+                        <span className="text-teal-400 font-medium mr-2">{label}:</span>
+                        {label === "Filename"
+                          ? selectedFile.name
+                          : String(analysisResults.metadata[label] || "N/A")}
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* --- Raport steganograficzny --- */}
-                    {selectedFile && (
-                      <SteganoReport image={selectedFile} />
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col gap-4 mb-6">
+                    {["EXIF Data", "GPS Info"].map((section) => (
+                      <div
+                        key={section}
+                        className="bg-gray-900 rounded-md p-3 max-h-56 overflow-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"
+                      >
+                        <h5 className="text-teal-400 font-medium mb-2">{section}</h5>
+                        {typeof analysisResults.metadata[section] === "object" &&
+                        Object.keys(analysisResults.metadata[section]).length > 0 ? (
+                          <table className="w-full text-xs text-gray-300">
+                            <tbody>
+                              {Object.entries(analysisResults.metadata[section]).map(([key, value]) => (
+                                <tr key={key} className="border-b border-gray-800">
+                                  <td className="text-gray-400 pr-2">{key}</td>
+                                  <td className="text-white">{String(value)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="text-gray-500 italic">No {section.toLowerCase()} found.</p>
+                        )}
+                      </div>
+                    ))}
+
+                    {lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) && (
+                      <div className="mt-4">
+                        <h5 className="text-teal-400 font-medium mb-2">Location Preview</h5>
+                        <div className="h-64 w-full rounded-lg overflow-hidden border border-teal-700">
+                          <GpsMap lat={lat} lon={lon} />
+                        </div>
+                      </div>
                     )}
 
+                    {selectedFile && <SteganoReport image={selectedFile} />}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
         </div>
       )}
     </div>

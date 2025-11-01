@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
-import ChecksumPanel from './CheckSumPanel'; // ✅ importujemy nowy komponent
+import ChecksumPanel from './CheckSumPanel';
 
 interface CheckProps {
   setActiveTab: (tab: string) => void;
@@ -11,7 +11,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [images2, setImages2] = useState<File[]>([]);
   const [previewUrl1, setPreviewUrl1] = useState<string | null>(null);
   const [previewUrls2, setPreviewUrls2] = useState<string[]>([]);
-  const [similarity, setSimilarity] = useState<string | null>(null);
+  const [similarity, setSimilarity] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<boolean>(false);
   const [denoiseMethod, setDenoiseMethod] = useState<string>('bm3d');
@@ -47,8 +47,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
       const data = await response.json();
 
       if (data.similarity !== undefined) {
-        const formatted = parseFloat(data.similarity).toFixed(5);
-        setSimilarity(`${formatted} (PCE)`);
+        const numericValue = parseFloat(data.similarity);
+        setSimilarity(numericValue);
         if (data.size_warning) setWarning(true);
       } else {
         setError('Nie udało się obliczyć korelacji.');
@@ -59,6 +59,17 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🎨 Funkcja określająca kolor PCE w zależności od wartości
+  const getPceColor = (value: number) => {
+    if (value < 20) return 'text-red-500';
+    if (value < 45) return 'text-orange-500';
+    if (value < 55) return 'text-amber-400';
+    if (value < 80) return 'text-yellow-400';
+    if (value < 95) return 'text-lime-400';
+    if (value < 200) return 'text-green-400';
+    return 'text-emerald-400';
   };
 
   return (
@@ -96,10 +107,12 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
 
       {/* 🔹 Panel raportu */}
       {bothUploaded && (
-        <div className="mt-8 bg-gray-900/70 rounded-xl p-6 border border-green-900 shadow-lg shadow-green-900/20 backdrop-blur-md">
-          <h3 className="text-xl font-medium mb-6 text-green-400">Comparison Report</h3>
+        <div className="mt-10 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/20 backdrop-blur-md">
+          <h3 className="text-2xl font-semibold mb-6 text-green-400 tracking-wide">
+            Comparison Report
+          </h3>
 
-          {/* Metoda odszumiania */}
+          {/* 🔧 Metoda odszumiania */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Denoising Method:
@@ -107,61 +120,69 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
             <select
               value={denoiseMethod}
               onChange={(e) => setDenoiseMethod(e.target.value)}
-              className="bg-gray-800/80 text-gray-200 border border-green-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none w-full"
+              className="bg-gray-800/90 text-gray-200 border border-green-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none w-full"
             >
               <option value="bm3d">BM3D (High Accuracy)</option>
               <option value="wavelet">Wavelet (Fast)</option>
             </select>
           </div>
 
-          {/* Ostrzeżenie */}
+          {/* ⚠️ Ostrzeżenie */}
           {warning && (
-            <div className="mt-6 mb-8 p-5 rounded-2xl bg-emerald-900/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium backdrop-blur-md shadow-inner shadow-emerald-900/30">
-              <span className="block text-base font-semibold mb-2 text-emerald-400">
-                ⚠ Resolution Mismatch Detected
+            <div className="mt-6 mb-8 p-5 rounded-2xl bg-amber-900/20 border border-amber-500/40 text-amber-300 text-sm font-medium backdrop-blur-md shadow-inner shadow-amber-900/30">
+              <span className="block text-base font-semibold mb-2 text-amber-400">
+                Resolution Mismatch Detected
               </span>
-              The uploaded images have <strong>different resolutions</strong>, which may slightly reduce
-              the precision of the <span className="text-green-300 font-semibold">PRNU similarity</span> result.
+              Uploaded images have <strong>different resolutions</strong>, which may reduce precision
+              of the <span className="text-green-300 font-semibold">PRNU correlation</span> results.
             </div>
           )}
 
-          {/* Wyniki i przycisk */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6">
-            <div className="space-y-2 text-gray-300">
-              <p>Resolution Match: {warning ? '❌ No' : '✅ Yes'}</p>
+          {/* 📊 Wyniki */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-8">
+            <div className="space-y-2 text-gray-300 text-sm md:text-base">
               <p>
-                Denoising Method: <span className="text-green-400">{denoiseMethod.toUpperCase()}</span>
+                Resolution Match:{' '}
+                <span className={warning ? 'text-red-500 font-semibold' : 'text-green-400 font-semibold'}>
+                  {warning ? 'No' : 'Yes'}
+                </span>
+              </p>
+              <p>
+                Denoising Method:{' '}
+                <span className="text-teal-400 font-semibold">{denoiseMethod.toUpperCase()}</span>
               </p>
             </div>
 
-            <div className="space-y-2 text-gray-300 flex items-center justify-center min-w-[200px] min-h-[60px]">
+            <div className="flex flex-col items-center justify-center min-w-[240px] min-h-[80px]">
               {loading ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 border-4 border-t-green-400 border-gray-700 rounded-full animate-spin"></div>
-                  <p className="text-green-400 mt-2 text-sm font-medium">Analyzing...</p>
+                  <div className="w-10 h-10 border-4 border-t-green-400 border-gray-700 rounded-full animate-spin"></div>
+                  <p className="text-green-400 mt-3 text-sm font-medium">Analyzing...</p>
                 </div>
               ) : (
                 <>
-                  <p>
-                    Similarity Score (PRNU):{' '}
-                    <span className="font-semibold text-green-400">
-                      {similarity ?? '---'}
-                    </span>
-                  </p>
-                  {error && <p className="text-red-400 font-semibold">{error}</p>}
+                  {similarity !== null ? (
+                    <p className={`text-3xl font-bold ${getPceColor(similarity)} drop-shadow-md`}>
+                      {similarity.toFixed(3)} <span className="text-gray-400 text-lg">PCE</span>
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 italic text-sm">No data yet</p>
+                  )}
+                  {error && <p className="text-red-400 font-semibold mt-2">{error}</p>}
                 </>
               )}
             </div>
 
-            <div>
+            {/* 🔘 Przyciski */}
+            <div className="flex justify-center">
               <button
                 onClick={handleCompare}
                 disabled={loading}
                 className={`${
                   loading
                     ? 'bg-gray-700 cursor-not-allowed opacity-70'
-                    : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500'
-                } text-black font-bold px-6 py-2 rounded-lg transition-all`}
+                    : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40'
+                } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
               >
                 {loading ? 'Processing...' : 'Compare'}
               </button>
@@ -170,10 +191,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
         </div>
       )}
 
-      {/* ✅ Panel sum kontrolnych — tylko dla obrazu źródłowego */}
-      {image1 && (
-        <ChecksumPanel files={[image1]} />
-      )}
+      {/* ✅ Panel sum kontrolnych */}
+      {image1 && <ChecksumPanel files={[image1]} />}
     </div>
   );
 };

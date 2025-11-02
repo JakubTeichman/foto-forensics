@@ -3,6 +3,8 @@ import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
 import SteganoReport from './SteganoReport';
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface AnalysisResults {
   metadata: { [key: string]: any };
@@ -37,6 +39,73 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   const [showReport, setShowReport] = useState(false);
   const [isLoadingFullHex, setIsLoadingFullHex] = useState(false);
   const [isFullHexVisible, setIsFullHexVisible] = useState(false);
+
+  const generatePDF = async () => {
+  const reportElement = document.getElementById("analysis-report");
+  if (!reportElement) {
+    alert("⚠️ No report to export!");
+    return;
+  }
+
+  // 🔹 Zapamiętaj aktualny stan sekcji (np. czy HEX rozwinięty)
+  const prevScrollStates = Array.from(reportElement.querySelectorAll(".overflow-auto")).map((el) => ({
+    el,
+    originalMaxHeight: (el as HTMLElement).style.maxHeight,
+    originalOverflow: (el as HTMLElement).style.overflow,
+  }));
+
+  // 🔹 Tymczasowe rozwinięcie wszystkich przewijalnych sekcji
+  prevScrollStates.forEach(({ el }) => {
+    (el as HTMLElement).style.maxHeight = "none";
+    (el as HTMLElement).style.overflow = "visible";
+  });
+
+  // 🔹 Ukryj elementy interaktywne (przyciski, navbar, footer itp.)
+  const hiddenElements = Array.from(document.querySelectorAll("button, nav, footer"));
+  hiddenElements.forEach((el) => ((el as HTMLElement).style.display = "none"));
+
+  // 🔹 Zrób zrzut widoku jako canvas
+  const canvas = await html2canvas(reportElement, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#1a1a1a",
+  } as any);
+
+  // 🔹 Przywróć układ po renderze
+  prevScrollStates.forEach(({ el, originalMaxHeight, originalOverflow }) => {
+    (el as HTMLElement).style.maxHeight = originalMaxHeight;
+    (el as HTMLElement).style.overflow = originalOverflow;
+  });
+  hiddenElements.forEach((el) => ((el as HTMLElement).style.display = ""));
+
+  // 🔹 Konwertuj na PDF
+  const imgData = canvas.toDataURL("image/png");
+  const pdf = new jsPDF("p", "mm", "a4");
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  let position = 0;
+  if (imgHeight > pageHeight) {
+    // jeśli zrzut jest dłuższy niż strona A4 → podziel na strony
+    let heightLeft = imgHeight;
+    let y = 0;
+    while (heightLeft > 0) {
+      pdf.addImage(imgData, "PNG", 0, y ? -y : 0, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      y += pageHeight;
+      if (heightLeft > 0) pdf.addPage();
+    }
+  } else {
+    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+  }
+
+  // 🔹 Zapisz PDF
+  pdf.save(`FotoForensics_Report_${selectedFile?.name || "image"}.pdf`);
+};
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -241,7 +310,7 @@ if (analysisResults?.metadata) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div id="analysis-report" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* --- LEWA KOLUMNA — podgląd + HEX --- */}
             <div>
               <div className="bg-black bg-opacity-50 rounded-lg overflow-hidden">
@@ -416,6 +485,18 @@ if (analysisResults?.metadata) {
                     )}
 
                     {selectedFile && <SteganoReport image={selectedFile} />}
+
+                      {showReport && (
+                        <div className="flex justify-end mb-4">
+                          <button
+                            onClick={generatePDF}
+                            className="bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 text-black font-semibold px-5 py-2 rounded-lg text-sm shadow-md hover:shadow-teal-500/40 transition-all"
+                          >
+                            <i className="fas fa-file-pdf mr-2"></i> Download PDF Report
+                          </button>
+                        </div>
+                      )}
+
                   </div>
                 </div>
               )}

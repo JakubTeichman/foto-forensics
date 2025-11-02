@@ -13,16 +13,32 @@ const Collaborate: React.FC<CollaborateProps> = ({ setActiveTab }) => {
     format: 'jpg',
   });
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Tutaj można dodać logikę wysłania formularza (np. fetch / axios)
 
-    // Po wysłaniu zmieniamy aktywną zakładkę
-    setActiveTab('nextTab'); // podaj właściwą nazwę zakładki docelowej
+    try {
+      const response = await fetch("http://localhost:5000/collaborate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(result.message);
+        setActiveTab("nextTab"); // switch tab after successful submission
+      } else {
+        alert(result.error || "An error occurred while submitting the form.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Could not connect to the server.");
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto mt-8"> {/* 🔹 odstęp od góry */}
+    <div className="max-w-3xl mx-auto mt-8">
       <div className="text-center mb-12">
         <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Collaborate with Us

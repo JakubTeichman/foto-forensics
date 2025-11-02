@@ -1,4 +1,3 @@
-// src/components/CheckSumPanel.tsx
 import React, { useEffect, useState } from "react";
 
 interface ChecksumResult {
@@ -8,8 +7,10 @@ interface ChecksumResult {
   sha256: string;
 }
 
-interface Props {
-  files: File[]; // Można przekazać 1 lub więcej plików
+interface CheckSumPanelProps {
+  files: File[];
+  onChecksumsCalculated?: (checksums: { [key: string]: string }) => void;
+  onStartCalculation?: () => void; // ✅ nowy prop
 }
 
 const bufferToHex = (buffer: ArrayBuffer) =>
@@ -21,31 +22,26 @@ const digestSubtle = async (arrayBuffer: ArrayBuffer, algo: AlgorithmIdentifier)
   try {
     const hash = await crypto.subtle.digest(algo, arrayBuffer);
     return bufferToHex(hash);
-  } catch (e) {
+  } catch {
     return "N/A";
   }
 };
 
 const computeMD5Dynamic = async (arrayBuffer: ArrayBuffer): Promise<string> => {
-  // próbujemy dynamicznie załadować spark-md5 (jeśli zainstalowany)
   try {
-    // @ts-ignore dynamic import, może nie mieć typów
+    // @ts-ignore dynamic import
     const SparkMD5 = (await import("spark-md5")).default || (await import("spark-md5"));
-    // spark-md5 obsługuje stringi lub ArrayBuffer (potrzebuje konwersji)
-    // SparkMD5.ArrayBuffer.hash
-    if (SparkMD5 && SparkMD5.ArrayBuffer && typeof SparkMD5.ArrayBuffer.hash === "function") {
+    if (SparkMD5?.ArrayBuffer?.hash) {
       return SparkMD5.ArrayBuffer.hash(arrayBuffer);
     }
-    // alternatywa: skonwertuj na Uint8Array -> string (wolniejsze)
     const u8 = new Uint8Array(arrayBuffer);
     return SparkMD5.ArrayBuffer.hash(u8 as any);
-  } catch (err) {
-    // brak spark-md5 — zwracamy N/A (bez crasha)
+  } catch {
     return "N/A";
   }
 };
 
-const CheckSumPanel: React.FC<Props> = ({ files }) => {
+const CheckSumPanel: React.FC<CheckSumPanelProps> = ({ files, onChecksumsCalculated, onStartCalculation }) => {
   const [results, setResults] = useState<ChecksumResult[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -57,16 +53,15 @@ const CheckSumPanel: React.FC<Props> = ({ files }) => {
       }
 
       setBusy(true);
+      if (onStartCalculation) onStartCalculation(); // ✅ uruchom spinner
+
       const newResults: ChecksumResult[] = [];
 
       for (const file of files) {
         const arrayBuffer = await file.arrayBuffer();
 
-        // SHA-1 i SHA-256 natywnie (crypto.subtle)
         const sha1 = await digestSubtle(arrayBuffer, "SHA-1");
         const sha256 = await digestSubtle(arrayBuffer, "SHA-256");
-
-        // MD5 — próbujemy dynamicznie użyć spark-md5 (jeśli jest)
         const md5 = await computeMD5Dynamic(arrayBuffer);
 
         newResults.push({
@@ -79,11 +74,18 @@ const CheckSumPanel: React.FC<Props> = ({ files }) => {
 
       setResults(newResults);
       setBusy(false);
+
+      if (onChecksumsCalculated) {
+        const checksums: { [key: string]: string } = {};
+        newResults.forEach((r) => {
+          checksums[r.name] = r.sha256;
+        });
+        onChecksumsCalculated(checksums);
+      }
     };
 
     calculateChecksums();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files?.length]); // odpalamy, gdy zmieni się lista plików
+  }, [files, onChecksumsCalculated, onStartCalculation]);
 
   if (!files || files.length === 0) return null;
 
@@ -93,8 +95,6 @@ const CheckSumPanel: React.FC<Props> = ({ files }) => {
         <i className="fas fa-fingerprint" />
         File Integrity Checksums
       </h3>
-
-      {busy && <p className="text-sm text-gray-400 mb-3">Computing checksums…</p>}
 
       <div className="space-y-4">
         {results.map((r, idx) => (

@@ -28,8 +28,8 @@ const Header: React.FC = () => {
               {[
                 { name: 'About', path: '/about' },
                 { name: 'Compare', path: '/compare' },
-                { name: 'Stegano', path: '/stegano-compare' },  
                 { name: 'Analysis', path: '/analysis' },
+                { name: 'Stegano + Integity', path: '/stegano-compare' },  
                 { name: 'Collaborate', path: '/collaborate' },
                 { name: 'Contact', path: '/contact' },
               ].map(({ name, path }) => (

@@ -1,133 +1,129 @@
+import os
+import json
 import cv2
 import numpy as np
 from PIL import Image
 
-# --- Importy metod ---
-from .classic.chi_square_analysis import analyze as ChiSquareAnalysis
-from .classic.lsb_histogram_analysis import analyze as LSBHistogramAnalysis
-from .classic.rs_analysis import analyze as RSAnalysis
-from .cnn.cnn_detector import CNNDetector
-from .cnn.noiseprint_extractor import NoiseprintExtractor
-from .ml.logistic_regression_detector import LogisticRegressionDetector
-from .ml.svm_detector import SVMDetector
-from .statistical.cooccurrence_analysis import analyze as CoOccurrenceAnalysis
-from .statistical.noise_residuals import analyze as NoiseResiduals
-from .statistical.wavelet_analysis import analyze as WaveletAnalysis
+# ✅ Upewniamy się, że importy działają poprawnie w projekcie i Dockerze
+from steganalysis.classic.chi_square_analysis import analyze as chi_square_analyze
+from steganalysis.classic.lsb_histogram_analysis import analyze as lsb_histogram_analyze
+from steganalysis.classic.rs_analysis import analyze as rs_analyze
+
+from steganalysis.statistical.cooccurrence_analysis import analyze as cooccurrence_analyze
+from steganalysis.statistical.noise_residuals import analyze as noise_residuals_analyze
+from steganalysis.statistical.wavelet_analysis import analyze as wavelet_analyze
 
 
 class AnalyzeSteganoSingle:
     """
-    Klasa analizująca jeden obraz pod kątem steganografii.
-    Łączy metody klasyczne, statystyczne i ML/CNN (jeśli aktywne).
+    Unified runner for per-image steganalysis methods.
+    Optionally uses calibration.json for score adjustment.
     """
 
-    def __init__(self):
-        # --- Klasyczne metody ---
-        self.his_square = ChiSquareAnalysis
-        self.lsb_histogram = LSBHistogramAnalysis
-        self.rs = RSAnalysis
+    def __init__(self, calibration_path=None):
+        # 📁 Domyślna ścieżka do pliku kalibracji — obok pliku backendu
+        if calibration_path is None:
+            calibration_path = os.path.join(os.path.dirname(__file__), "calibration.json")
 
-        # --- Statystyczne metody ---
-        self.cooccurrence = CoOccurrenceAnalysis
-        self.noise_residuals = NoiseResiduals
-        self.wavelet = WaveletAnalysis
-
-        # --- Modele ML i CNN ---
-        self.logreg = LogisticRegressionDetector()
-        self.svm = SVMDetector()
-        self.cnn = CNNDetector()
-        self.noiseprint = NoiseprintExtractor()
-
-    def analyze(self, image_path=None, pil_image=None):
-        """
-        Analizuje obraz i zwraca raport zbiorczy.
-        """
-        # --- Wczytanie obrazu ---
-        if pil_image is not None:
-            image = np.array(pil_image.convert("RGB"))
-        elif image_path:
-            image = cv2.imread(image_path)
-            if image is None:
-                raise ValueError(f"Nie udało się wczytać obrazu: {image_path}")
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(image)
-        else:
-            raise ValueError("Musisz podać image_path lub pil_image")
-
-        # --- Konwersja do odcieni szarości ---
-        gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        gray_pil = Image.fromarray(gray_image)
-
-        results = {}
-
-        # --- Klasyczne metody ---
-        try:
-            results["chi_square"] = self.his_square(image_bytes=None, pil_image=gray_pil)
-        except Exception as e:
-            results["chi_square"] = {"method": "chi_square", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["lsb_histogram"] = self.lsb_histogram(image_bytes=None, pil_image=pil_image)
-        except Exception as e:
-            results["lsb_histogram"] = {"method": "lsb_histogram", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["rs_analysis"] = self.rs(image_bytes=None, pil_image=gray_pil)
-        except Exception as e:
-            results["rs_analysis"] = {"method": "rs_analysis", "score": 0.0, "detected": False, "error": str(e)}
-
-        # --- Statystyczne metody ---
-        try:
-            results["cooccurrence"] = self.cooccurrence(image_bytes=None, pil_image=gray_pil)
-        except Exception as e:
-            results["cooccurrence"] = {"method": "cooccurrence", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["noise_residuals"] = self.noise_residuals(image_bytes=None, pil_image=gray_pil)
-        except Exception as e:
-            results["noise_residuals"] = {"method": "noise_residuals", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["wavelet"] = self.wavelet(image_bytes=None, pil_image=gray_pil)
-        except Exception as e:
-            results["wavelet"] = {"method": "wavelet", "score": 0.0, "detected": False, "error": str(e)}
-
-        # --- (opcjonalnie) Modele ML i CNN ---
-        # Jeśli chcesz je włączyć, odkomentuj poniższe linie:
-        """
-        try:
-            results["logistic_regression"] = self.logreg.analyze(image)
-        except Exception as e:
-            results["logistic_regression"] = {"method": "logreg", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["svm"] = self.svm.analyze(image)
-        except Exception as e:
-            results["svm"] = {"method": "svm", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["cnn"] = self.cnn.analyze(image)
-        except Exception as e:
-            results["cnn"] = {"method": "cnn", "score": 0.0, "detected": False, "error": str(e)}
-
-        try:
-            results["noiseprint"] = self.noiseprint.analyze(image)
-        except Exception as e:
-            results["noiseprint"] = {"method": "noiseprint", "score": 0.0, "detected": False, "error": str(e)}
-        """
-
-        # --- Analiza zbiorcza ---
-        detected_methods = [
-            name for name, res in results.items()
-            if isinstance(res, dict) and res.get("detected", False)
-        ]
-
-        summary = {
-            "hidden_detected": len(detected_methods) > 0,
-            "detected_methods": detected_methods,
-            "total_methods": len(results),
-            "positive_count": len(detected_methods),
-            "details": results
+        self.methods = {
+            "chi_square": chi_square_analyze,
+            "lsb_histogram": lsb_histogram_analyze,
+            "rs_analysis": rs_analyze,
+            "cooccurrence": cooccurrence_analyze,
+            "noise_residuals": noise_residuals_analyze,
+            "wavelet": wavelet_analyze,
         }
 
-        return summary
+        # 🔹 Wczytaj dane kalibracji (jeśli są dostępne)
+        self.calibration_data = None
+        if os.path.exists(calibration_path):
+            try:
+                with open(calibration_path, "r") as f:
+                    self.calibration_data = json.load(f)
+                print(f"✅ Calibration loaded from: {calibration_path}")
+            except Exception as e:
+                print(f"⚠️ Could not load calibration file: {e}")
+        else:
+            print("ℹ️ No calibration file found — running without calibration")
+
+    # --- KALIBRACJA ---
+    def _apply_calibration(self, method_name, score):
+        """Adjusts score based on calibration data if available."""
+        if not self.calibration_data:
+            return score
+
+        delta_section = self.calibration_data.get("delta", {})
+        cover_means = self.calibration_data.get("cover_means", {})
+        stegano_means = self.calibration_data.get("stegano_means", {})
+
+        if method_name not in delta_section:
+            return score
+
+        cover_mean = cover_means.get(method_name, 0.0)
+        stegano_mean = stegano_means.get(method_name, 0.0)
+        range_diff = stegano_mean - cover_mean
+
+        if abs(range_diff) < 1e-9:
+            return score  # brak sensownej różnicy
+
+        # Normalizacja — przesuwamy wynik względem zakresu z kalibracji
+        calibrated = (score - cover_mean) / range_diff
+        return float(np.clip(calibrated, 0, 1))
+
+    # --- ANALIZA ---
+    def analyze(self, image_path=None, pil_image=None):
+        """Main analysis pipeline for single image."""
+        if pil_image is not None:
+            pil_rgb = pil_image.convert("RGB")
+        elif image_path:
+            img_cv = cv2.imread(image_path)
+            if img_cv is None:
+                raise ValueError(f"❌ Cannot read image: {image_path}")
+            img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+            pil_rgb = Image.fromarray(img_rgb)
+        else:
+            raise ValueError("❗ Provide either image_path or pil_image")
+
+        pil_gray = pil_rgb.convert("L")
+
+        methods_results = {}
+
+        for name, fn in self.methods.items():
+            try:
+                if name == "lsb_histogram":
+                    res = fn(pil_image=pil_rgb)
+                else:
+                    res = fn(pil_image=pil_gray)
+
+                if not isinstance(res, dict):
+                    res = {"method": name, "score": float(res), "detected": float(res) >= 0.5, "details": {}}
+
+                raw_score = float(res.get("score", 0.0))
+                calibrated_score = self._apply_calibration(name, raw_score)
+
+                methods_results[name] = {
+                    "method": res.get("method", name),
+                    "score_raw": raw_score,
+                    "score_calibrated": calibrated_score,
+                    "detected": calibrated_score >= 0.5,
+                    "details": res.get("details", {}),
+                }
+
+            except Exception as e:
+                methods_results[name] = {
+                    "method": name,
+                    "score_raw": 0.0,
+                    "score_calibrated": 0.0,
+                    "detected": False,
+                    "details": {"error": str(e)},
+                }
+
+        detected_methods = [n for n, r in methods_results.items() if r.get("detected", False)]
+
+        return {
+            "hidden_detected": len(detected_methods) > 0,
+            "detected_methods": detected_methods,
+            "total_methods": len(methods_results),
+            "positive_count": len(detected_methods),
+            "methods_results": methods_results,
+        }

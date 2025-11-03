@@ -43,22 +43,26 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
   // helper: extract method-results object robustly from different response shapes
   const extractMethods = (resp: any) => {
     if (!resp) return {};
+
     if (resp.report?.analysis_results && typeof resp.report.analysis_results === 'object') {
       return resp.report.analysis_results;
     }
-    if (resp.details?.details && typeof resp.details.details === 'object') {
-      return resp.details.details;
+
+    if (resp.details?.methods_results && typeof resp.details.methods_results === 'object') {
+      return resp.details.methods_results;
     }
+
     if (resp.details && typeof resp.details === 'object') {
       const maybe = Object.entries(resp.details).every(([_, v]) =>
-        v && typeof v === 'object' && ('score' in v || 'detected' in v || 'method' in v)
+        v && typeof v === 'object' && ('score' in v || 'detected' in v)
       );
       if (maybe) return resp.details;
-      return {};
     }
+
     if (resp.analysis_results && typeof resp.analysis_results === 'object') {
       return resp.analysis_results;
     }
+
     return {};
   };
 
@@ -130,32 +134,35 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
                   <th className="text-left py-1">Method</th>
                   <th className="text-left py-1">Score</th>
                   <th className="text-left py-1">Detection Status</th>
-                  <th className="text-left py-1">Notes / Error</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(methodsResults).map(([method, data]: any) => {
-                  const score = data?.score;
+                  // ✅ uwzględniamy różne możliwe pola z backendu
+                  const scoreValue =
+                    typeof data?.score_calibrated === 'number'
+                      ? data.score_calibrated
+                      : typeof data?.score_raw === 'number'
+                      ? data.score_raw
+                      : typeof data?.score === 'number'
+                      ? data.score
+                      : parseFloat(data?.score_calibrated || data?.score_raw || data?.score) || 0;
+
                   const detected = !!data?.detected;
-                  const err = data?.details?.error || data?.error || '';
+
                   return (
                     <tr
                       key={method}
                       className="border-b border-gray-800 text-gray-300"
                     >
                       <td className="py-1 font-medium">{method}</td>
-                      <td className="py-1">
-                        {typeof score === 'number' ? score.toFixed(3) : '-'}
-                      </td>
+                      <td className="py-1">{scoreValue.toFixed(3)}</td>
                       <td
                         className={`py-1 font-semibold ${
                           detected ? 'text-red-400' : 'text-green-400'
                         }`}
                       >
                         {detected ? 'Detected' : 'Not detected'}
-                      </td>
-                      <td className="py-1 text-red-400">
-                        {String(err).slice(0, 80)}
                       </td>
                     </tr>
                   );

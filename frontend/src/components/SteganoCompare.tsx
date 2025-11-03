@@ -11,9 +11,7 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
   const [image2, setImage2] = useState<File | null>(null);
   const [previewUrl1, setPreviewUrl1] = useState<string | null>(null);
   const [previewUrl2, setPreviewUrl2] = useState<string | null>(null);
-  const [checksums, setChecksums] = useState<{ [key: string]: string }>({});
   const [integrityResult, setIntegrityResult] = useState<'passed' | 'failed' | null>(null);
-  const [loadingChecksums, setLoadingChecksums] = useState(false);
 
   useEffect(() => {
     setActiveTab('stegano');
@@ -21,29 +19,26 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
 
   const bothUploaded = image1 && image2;
 
- const handleStartCalculation = () => {
-  setIntegrityResult(null);
-  // pokaż spinner tylko jeśli trwa dłużej niż 300 ms
-  const timer = setTimeout(() => setLoadingChecksums(true), 300);
-  (handleStartCalculation as any).timer = timer; // przechowaj referencję
-};
+  // 🔹 Funkcja do liczenia SHA-256
+  const calculateHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
 
-const handleChecksumsCalculated = (newChecksums: { [key: string]: string }) => {
-  if ((handleStartCalculation as any).timer) {
-    clearTimeout((handleStartCalculation as any).timer);
-  }
-  setLoadingChecksums(false);
-  setChecksums(newChecksums);
-
-  const keys = Object.keys(newChecksums);
-  if (keys.length === 2) {
-    const [sum1, sum2] = Object.values(newChecksums);
-    setIntegrityResult(sum1 === sum2 ? 'passed' : 'failed');
-  } else {
-    setIntegrityResult(null);
-  }
-};
-
+  // 🔹 Automatyczne porównywanie hashy
+  useEffect(() => {
+    const computeIntegrity = async () => {
+      if (image1 && image2) {
+        const [hash1, hash2] = await Promise.all([calculateHash(image1), calculateHash(image2)]);
+        setIntegrityResult(hash1 === hash2 ? 'passed' : 'failed');
+      } else {
+        setIntegrityResult(null);
+      }
+    };
+    computeIntegrity();
+  }, [image1, image2]);
 
   return (
     <div className="max-w-6xl mx-auto mt-8">
@@ -76,46 +71,29 @@ const handleChecksumsCalculated = (newChecksums: { [key: string]: string }) => {
         />
       </div>
 
-      {/* Checksum and Integrity Section */}
+      {/* Integrity Report + Checksum Panel */}
       {bothUploaded && (
         <div className="mt-12 space-y-8">
-          {/* Integrity report or loader */}
-          <div
-            className={`rounded-xl p-6 text-center border shadow-lg backdrop-blur-md transition-all duration-500 ${
-              integrityResult === 'passed'
-                ? 'bg-green-900/30 border-green-700 text-green-400 shadow-green-900/20 opacity-100'
-                : integrityResult === 'failed'
-                ? 'bg-red-900/30 border-red-700 text-red-400 shadow-red-900/20 opacity-100'
-                : 'bg-gray-900/30 border-gray-700 text-gray-300 shadow-gray-900/20 opacity-90'
-            }`}
-          >
-            {!loadingChecksums && integrityResult && (
-              <>
-                <h3 className="text-2xl font-semibold mb-2">Integrity Report</h3>
-                {integrityResult === 'passed' ? (
-                  <p className="text-lg">Integrity verified — the files are identical.</p>
-                ) : (
-                  <p className="text-lg">Integrity failed — the files differ.</p>
-                )}
-              </>
-            )}
+          {/* Integrity Report */}
+          {integrityResult && (
+            <div
+              className={`rounded-xl p-6 text-center border shadow-lg backdrop-blur-md transition-all duration-500 ${
+                integrityResult === 'passed'
+                  ? 'bg-green-900/30 border-green-700 text-green-400 shadow-green-900/20'
+                  : 'bg-red-900/30 border-red-700 text-red-400 shadow-red-900/20'
+              }`}
+            >
+              <h3 className="text-2xl font-semibold mb-2">Integrity Report</h3>
+              {integrityResult === 'passed' ? (
+                <p className="text-lg">Integrity verified — the files are identical.</p>
+              ) : (
+                <p className="text-lg">Integrity check failed — the files differ.</p>
+              )}
+            </div>
+          )}
 
-            {loadingChecksums && (
-              <div className="flex flex-col items-center justify-center space-y-3">
-                {/* 🔹 Spinner */}
-                <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                <h3 className="text-2xl font-semibold text-teal-400">Analyzing Integrity...</h3>
-                <p className="text-sm text-gray-400">Please wait while checksums are calculated.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Checksum results */}
-          <CheckSumPanel
-            files={[image1, image2].filter(Boolean) as File[]}
-            onChecksumsCalculated={handleChecksumsCalculated}
-            onStartCalculation={handleStartCalculation} // ✅ nowy callback
-          />
+          {/* CheckSumPanel (tylko do wyświetlenia) */}
+          <CheckSumPanel files={[image1, image2].filter(Boolean) as File[]} />
         </div>
       )}
     </div>

@@ -48,17 +48,17 @@ def analyze_steganography():
         analyzer = AnalyzeSteganoSingle()
         results = analyzer.analyze(pil_image=image)
 
-        # Simple summary logic: check if any method detected hidden data
-        hidden_detected = any(
-            v.get("detected", False) for v in results.values() if isinstance(v, dict)
-        )
+        # Poprawne sprawdzenie wykrycia
+        hidden_detected = results.get("hidden_detected", False)
 
         return jsonify({
             "status": "success",
-            "hidden_detected": bool(hidden_detected),
+            "hidden_detected": hidden_detected,
             "method": "multi-method",
-            "details": results
+            "details": results,
+            "methods_results": results.get("methods_results", {})
         }), 200
+
 
     except Exception as e:
         traceback.print_exc()

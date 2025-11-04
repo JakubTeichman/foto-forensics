@@ -40,7 +40,6 @@ const Footer: React.FC = () => {
             © 2025 FOTO FORENSICS
           </p>
           <div className="flex mt-3 md:mt-0">
-            <a href="/collaborate" className="text-gray-500 hover:text-gray-300 text-sm mx-3">Collaborate</a>
             <a href="/contact" className="text-gray-500 hover:text-gray-300 text-sm mx-3">Contact Us</a>
           </div>
         </div>

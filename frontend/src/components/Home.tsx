@@ -89,8 +89,8 @@ const Home: React.FC<HomeProps> = ({ setActiveTab }) => {
         </h1>
 
         <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-12">
-          Powerful forensics platform for professionals. Detect manipulations,
-          analyze metadata, and verify authenticity with precision.
+          Powerful forensics platform for everyone. Detect manipulations and hidden data, check photo source
+          analyze metadata, check photo location, verify integrity.
         </p>
 
         <div className="flex flex-wrap justify-center gap-6">

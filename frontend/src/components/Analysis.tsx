@@ -79,13 +79,21 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   hiddenElements.forEach((el) => ((el as HTMLElement).style.display = ""));
 
   // 🔹 Konwertuj na PDF
-  const imgData = canvas.toDataURL("image/png");
-  const pdf = new jsPDF("p", "mm", "a4");
+    const imgData = canvas.toDataURL("image/png");
+  
+    // Use A4 width (210 mm) as the PDF width and compute the height in mm
+    const pageWidthMM = 210;
+    const imgWidth = pageWidthMM;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  
+    const pdf = new jsPDF({
+      orientation: "p",
+      unit: "mm",
+      format: [pageWidthMM, imgHeight], // width and computed height in mm
+    });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
 
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
   let position = 0;
   if (imgHeight > pageHeight) {
@@ -248,7 +256,7 @@ if (analysisResults?.metadata) {
             Image Analysis
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Upload your image to begin forensic examination for authenticity and hidden traces.
+            Upload your image to begin forensic examination.
           </p>
         </div>
       )}

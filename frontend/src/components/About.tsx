@@ -47,10 +47,11 @@ Denoising methods:
         {/* Nagłówek */}
         <div className="relative max-w-4xl text-center mb-16">
           <h2 className="text-3xl font-bold mb-6 text-teal-400 leading-tight">
-            Advanced Photo Forensics Analysis
+            Free Photo Forensics Analysis
           </h2>
           <p className="text-lg text-gray-300 mb-8">
-            Detect image manipulation, analyze metadata, and verify authenticity with cutting-edge forensic tools.
+            Detect manipulations and hidden data, check photo source
+            analyze metadata, check photo location, verify integrity.
           </p>
           <button
             onClick={handleStartAnalysis}
@@ -66,17 +67,17 @@ Denoising methods:
             {
               icon: 'fas fa-search',
               title: 'Detect Manipulation',
-              description: 'Identify altered regions, clone stamps, and digital inconsistencies with high precision.'
+              description: 'Inspect hidden data in image and compare them to verify integrity.'
             },
             {
               icon: 'fas fa-code',
               title: 'Metadata Analysis',
-              description: 'Extract EXIF and GPS data to confirm image source, parameters, and authenticity.'
+              description: 'Extract EXIF, GPS data, HEX view and steganography raport.'
             },
             {
               icon: 'fas fa-shield-alt',
               title: 'Forensic Reports',
-              description: 'Generate structured forensic documentation for professional and legal use.'
+              description: 'Generate structured forensic raport for personal use.'
             }
           ].map((card, i) => (
             <div

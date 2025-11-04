@@ -67,7 +67,7 @@ const Contact: React.FC<ContactProps> = ({ setActiveTab }) => {
           Contact Us
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-          Get in touch with our team for support, inquiries, or partnership opportunities.
+          Get in touch for support or partnership opportunities.
         </p>
       </div>
 

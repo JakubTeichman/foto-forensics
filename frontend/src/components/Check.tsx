@@ -80,7 +80,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
           Image Comparison
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-          Compare and analyze multiple images to detect differences and verify authenticity.
+          Compare and analyze multiple images to identify photo origin. 
         </p>
       </div>
 

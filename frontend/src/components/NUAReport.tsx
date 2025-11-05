@@ -15,14 +15,11 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
   const [referenceResults, setReferenceResults] = useState<NUAResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 🔹 Trzymamy poprzedni hash, żeby wykrywać realne zmiany
   const lastHash = useRef<string | null>(null);
 
   useEffect(() => {
     if (!imageFile) return;
 
-    // 🔹 Tworzymy hash (unikalny identyfikator kombinacji plików)
     const hash =
       imageFile.name +
       "-" +
@@ -30,7 +27,6 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
       "-" +
       referenceImages.map((f) => f.name + "-" + f.size).join(",");
 
-    // Jeśli hash się nie zmienił → nie analizujemy ponownie
     if (hash === lastHash.current) return;
     lastHash.current = hash;
 
@@ -41,7 +37,6 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
       setReferenceResults([]);
 
       try {
-        // 🔹 Analiza głównego (dowodowego) zdjęcia
         const mainFormData = new FormData();
         mainFormData.append("file", imageFile);
 
@@ -57,7 +52,6 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
         const mainData = await mainResponse.json();
         setMainResult(mainData);
 
-        // 🔹 Analiza zdjęć referencyjnych — tylko jeśli istnieją
         if (referenceImages.length > 0) {
           const results: NUAResult[] = [];
 
@@ -71,7 +65,6 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
             });
 
             if (!res.ok) continue;
-
             const data = await res.json();
             results.push(data);
           }
@@ -90,6 +83,16 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
   }, [imageFile, referenceImages]);
 
   const detectedCount = referenceResults.filter((r) => r.detected).length;
+  const total = referenceResults.length;
+  const detectedRatio = total > 0 ? detectedCount / total : 0;
+
+  // 🔹 Formatowanie warunkowe (kolory)
+  let refBgColor = "bg-green-900/30 border-green-700"; // domyślnie zielony
+  if (detectedRatio >= 0.4 && detectedRatio <= 0.6) {
+    refBgColor = "bg-orange-900/30 border-orange-700";
+  } else if (detectedRatio > 0.6) {
+    refBgColor = "bg-red-900/30 border-red-700";
+  }
 
   return (
     <div className="mt-6 mb-4 bg-gray-900 border border-teal-800 rounded-xl shadow-lg p-5 w-full">
@@ -137,7 +140,9 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
 
           {/* 🔹 Wyniki zdjęć referencyjnych */}
           {referenceImages.length > 0 && (
-            <div className="mt-5 w-full text-center py-4 rounded-lg border border-teal-700 bg-gray-800/40">
+            <div
+              className={`mt-5 w-full text-center py-4 rounded-lg border transition-all duration-300 ${refBgColor}`}
+            >
               {referenceResults.length > 0 ? (
                 <>
                   <p className="text-base font-medium text-teal-300">

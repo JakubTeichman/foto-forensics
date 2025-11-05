@@ -3,6 +3,7 @@ import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
 import SteganoReport from './SteganoReport';
+import NUAReport from './NUAReport';
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -393,6 +394,7 @@ if (analysisResults?.metadata) {
                   </div>
                 </div>
               )}
+              {selectedFile && <NUAReport imageFile={selectedFile} />}
             </div>
 
             {/* --- PRAWA KOLUMNA — przycisk Analyze i raport --- */}

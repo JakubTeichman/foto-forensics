@@ -394,7 +394,11 @@ if (analysisResults?.metadata) {
                   </div>
                 </div>
               )}
-              {selectedFile && <NUAReport imageFile={selectedFile} />}
+
+            {showReport && analysisResults && selectedFile && (
+              <NUAReport imageFile={selectedFile} />
+            )}
+            
             </div>
 
             {/* --- PRAWA KOLUMNA — przycisk Analyze i raport --- */}

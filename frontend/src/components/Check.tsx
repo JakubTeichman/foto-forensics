@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import ChecksumPanel from './CheckSumPanel';
+import NUAReport from './NUAReport';
 
 interface CheckProps {
   setActiveTab: (tab: string) => void;
@@ -190,6 +191,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
           </div>
         </div>
       )}
+        
+      {image1 && <NUAReport imageFile={image1} referenceImages={images2} />}
 
       {/* ✅ Panel sum kontrolnych */}
       {image1 && <ChecksumPanel files={[image1]} />}

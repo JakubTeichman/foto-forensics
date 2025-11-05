@@ -4,6 +4,11 @@ from extensions import mail
 
 others_bp = Blueprint('others', __name__)
 
+@others_bp.route("/api/health")
+def health():
+    return {"status": "ok"}
+
+
 @others_bp.route('/collaborate', methods=['POST'])
 def collaborate():
     """

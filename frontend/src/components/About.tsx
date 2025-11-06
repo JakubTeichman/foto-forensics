@@ -46,7 +46,7 @@ Denoising methods:
       <div className="relative z-10 w-full flex flex-col items-center">
         {/* Nagłówek */}
         <div className="relative max-w-4xl text-center mb-16">
-          <h2 className="text-3xl font-bold mb-6 text-teal-400 leading-tight">
+          <h2 className="text-5xl font-bold mb-6 text-teal-400 leading-tight">
             Free Photo Forensics Analysis
           </h2>
           <p className="text-lg text-gray-300 mb-8">

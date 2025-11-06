@@ -19,8 +19,7 @@ const Footer: React.FC = () => {
           <div className="flex space-x-5">
             {[
               { iconClass: 'fab fa-linkedin', url: 'https://www.linkedin.com/in/jakub-teichman-ba0a0224a/' },
-              { iconClass: 'fab fa-github', url: 'https://github.com/JakubTeichman' },
-              { iconClass: 'fas fa-envelope', url: 'fotoforensics3@gmail.com'}
+              { iconClass: 'fab fa-github', url: 'https://github.com/JakubTeichman' }
             ].map(({ iconClass, url }) => (
               <a
                 key={iconClass}

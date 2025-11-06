@@ -264,7 +264,7 @@ if (analysisResults?.metadata) {
       {/* --- Sekcja wyboru pliku --- */}
       {!selectedFile && (
         <div
-          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mb-4"
+          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
@@ -434,7 +434,7 @@ if (analysisResults?.metadata) {
 
               {/* --- Raport metadanych --- */}
               {showReport && analysisResults && (
-                <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6 mt-6">
+                <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6">
                   {(() => {
                     const exifCount = Object.keys(analysisResults.metadata["EXIF Data"] || {}).length;
                     const gpsCount = Object.entries(analysisResults.metadata["GPS Info"] || {}).filter(

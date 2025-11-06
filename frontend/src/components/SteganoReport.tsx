@@ -70,9 +70,10 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
 
   return (
     <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6 mt-6">
+      {result && (
       <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
         Steganography Analysis
-      </h3>
+      </h3>)}
 
       {!image && (
         <p className="text-gray-400 italic">No image selected for analysis.</p>
@@ -99,7 +100,7 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
       )}
 
       {result && (
-        <div className="mt-5 bg-[#1a1a1a] border border-gray-700 rounded-xl p-4">
+        <div className="mt-5 bg-gray-900 border border-gray-700 rounded-xl p-4">
           <h4 className="text-lg font-semibold text-teal-400 mb-3">
             Steganography Detection Report
           </h4>

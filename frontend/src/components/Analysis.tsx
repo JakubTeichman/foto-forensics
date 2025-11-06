@@ -4,6 +4,7 @@ import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
 import SteganoReport from './SteganoReport';
 import NUAReport from './NUAReport';
+import NoiseprintReport from './NoiseprintReport';
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -398,6 +399,10 @@ if (analysisResults?.metadata) {
               <NUAReport imageFile={selectedFile} />
             )}
             
+            {showReport && analysisResults && selectedFile && (
+              <NoiseprintReport imageFile={selectedFile} />
+            )}
+
             </div>
 
             {/* --- PRAWA KOLUMNA — przycisk Analyze i raport --- */}
@@ -498,24 +503,26 @@ if (analysisResults?.metadata) {
                     )}
 
                   </div>
+                    {/* --- Raport steganografii --- */}
+                      {selectedFile && showReport && analysisResults && <SteganoReport image={selectedFile} />}
+
                 </div>
               )}
-
-              {/* --- Raport steganografii --- */}
-              {selectedFile && showReport && analysisResults && <SteganoReport image={selectedFile} />}
 
               {showReport && (
-                <div className="flex justify-end mb-4 mt-6">
-                  <button
-                    onClick={generatePDF}
-                    className="bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 text-black font-semibold px-5 py-2 rounded-lg text-sm shadow-md hover:shadow-teal-500/40 transition-all"
-                  >
-                    <i className="fas fa-file-pdf mr-2"></i> Download PDF Report
-                  </button>
-                </div>
-              )}
+                        <div className="flex justify-end mb-4 mt-6">
+                          <button
+                            onClick={generatePDF}
+                            className="bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 text-black font-semibold px-5 py-2 rounded-lg text-sm shadow-md hover:shadow-teal-500/40 transition-all"
+                          >
+                            <i className="fas fa-file-pdf mr-2"></i> Download PDF Report
+                          </button>
+                        </div>
+                      )}
 
             </div>
+
+            
           </div>
 
         </div>

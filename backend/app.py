@@ -5,6 +5,7 @@ from routes.analyze_routes import analyze_bp
 from routes.compare_routes import compare_bp
 from routes.steganography_routes import steganography_bp
 from routes.other_routes import others_bp
+from routes.noiseprint_routes import noiseprint_bp
 from extensions import mail
 
 def create_app():
@@ -26,8 +27,10 @@ def create_app():
     app.register_blueprint(steganography_bp)   
     app.register_blueprint(compare_bp)
     app.register_blueprint(others_bp)
+    app.register_blueprint(noiseprint_bp, url_prefix="/noiseprint")
 
     return app
+
 
 
 if __name__ == "__main__":

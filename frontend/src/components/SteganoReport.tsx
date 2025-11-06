@@ -20,7 +20,7 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
     formData.append('file', image);
 
     try {
-      const res = await fetch('http://localhost:5000/stegano/analyze', {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE}/stegano/analyze`, {
         method: 'POST',
         body: formData,
       });
@@ -69,8 +69,8 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
   const methodsResults = extractMethods(result);
 
   return (
-    <div className="bg-[#0f0f0f] border border-gray-800 rounded-2xl p-6 mt-6 text-gray-200 shadow-lg">
-      <h3 className="text-2xl font-semibold text-teal-400 mb-4">
+    <div className="bg-gray-800 border border-teal-800 rounded-xl bg-opacity-70 rounded-lg p-6 mt-6">
+      <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
         Steganography Analysis
       </h3>
 

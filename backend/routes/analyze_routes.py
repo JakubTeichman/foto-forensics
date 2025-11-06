@@ -49,7 +49,7 @@ transform = transforms.Compose([
 # ==============================
 # 🔍 Endpoint: analiza NUA
 # ==============================
-@analyze_bp.route("/nua/", methods=["POST"])
+@analyze_bp.route("/nua", methods=["POST"])
 def analyze_nua():
     if "file" not in request.files:
         return jsonify({"error": "Brak pliku"}), 400

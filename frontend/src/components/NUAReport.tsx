@@ -40,7 +40,7 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
         const mainFormData = new FormData();
         mainFormData.append("file", imageFile);
 
-        const mainResponse = await fetch("http://localhost:5000/analyze/nua", {
+        const mainResponse = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/nua`, {
           method: "POST",
           body: mainFormData,
         });
@@ -59,7 +59,7 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
             const formData = new FormData();
             formData.append("file", refImg);
 
-            const res = await fetch("http://localhost:5000/analyze/nua", {
+            const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/nua`, {
               method: "POST",
               body: formData,
             });
@@ -96,7 +96,7 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
 
   return (
     <div className="mt-6 mb-4 bg-gray-900 border border-teal-800 rounded-xl shadow-lg p-5 w-full">
-      <h2 className="text-lg font-semibold mb-3 text-center text-teal-400">
+      <h2 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2 mr-1">
         NUA Report
       </h2>
 

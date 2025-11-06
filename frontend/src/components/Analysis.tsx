@@ -137,7 +137,7 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
     formData.append('image', selectedFile);
 
     try {
-      const res = await fetch('http://localhost:5000/analyze/metadata', {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/metadata`, {
         method: 'POST',
         body: formData,
       });
@@ -219,7 +219,6 @@ if (analysisResults?.metadata) {
 
   if (rawLat && rawLon) {
     try {
-      // 🔹 Parsowanie tekstu "[39, 28, 689/25]" na tablicę [39, 28, 689/25]
       const parseCoord = (coordStr: string): number[] => {
         const cleaned = coordStr.replace(/\s/g, '').replace(/^\[|\]$/g, '');
         return cleaned.split(',').map((val) => {
@@ -265,7 +264,7 @@ if (analysisResults?.metadata) {
       {/* --- Sekcja wyboru pliku --- */}
       {!selectedFile && (
         <div
-          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4"
+          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mb-4"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
@@ -498,22 +497,24 @@ if (analysisResults?.metadata) {
                       </div>
                     )}
 
-                    {selectedFile && <SteganoReport image={selectedFile} />}
-
-                      {showReport && (
-                        <div className="flex justify-end mb-4">
-                          <button
-                            onClick={generatePDF}
-                            className="bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 text-black font-semibold px-5 py-2 rounded-lg text-sm shadow-md hover:shadow-teal-500/40 transition-all"
-                          >
-                            <i className="fas fa-file-pdf mr-2"></i> Download PDF Report
-                          </button>
-                        </div>
-                      )}
-
                   </div>
                 </div>
               )}
+
+              {/* --- Raport steganografii --- */}
+              {selectedFile && showReport && analysisResults && <SteganoReport image={selectedFile} />}
+
+              {showReport && (
+                <div className="flex justify-end mb-4 mt-6">
+                  <button
+                    onClick={generatePDF}
+                    className="bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 text-black font-semibold px-5 py-2 rounded-lg text-sm shadow-md hover:shadow-teal-500/40 transition-all"
+                  >
+                    <i className="fas fa-file-pdf mr-2"></i> Download PDF Report
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
 

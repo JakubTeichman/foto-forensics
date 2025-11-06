@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   mysql:
     image: mysql:8.0
@@ -35,7 +37,7 @@ services:
   frontend:
     build: ./frontend
     environment:
-      REACT_APP_API_BASE: "http://localhost:5000/api"
+      REACT_APP_API_BASE: "http://localhost:5000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -52,3 +54,4 @@ volumes:
 
 networks:
   forensics-net:
+    driver: bridge

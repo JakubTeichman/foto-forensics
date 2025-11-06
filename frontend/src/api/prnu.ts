@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+const API_BASE = import.meta.env.REACT_APP_API_BASE || "http://backend:5000";
 
 export async function apiCompare(filesRefs: FileList | null, referenceUrls: string[] | null, evidenceFile: File) {
   const fd = new FormData();

@@ -30,6 +30,7 @@ const Header: React.FC = () => {
                 { name: 'Compare', path: '/compare' },
                 { name: 'Analysis', path: '/analysis' },
                 { name: 'Stegano + Integity', path: '/stegano-compare' },
+                { name: 'Add Reference', path: '/add-reference' },
                 { name: 'Contact', path: '/contact' },
               ].map(({ name, path }) => (
                 <li key={name}>

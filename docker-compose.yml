@@ -1,12 +1,11 @@
-version: "3.9"
-
 services:
   mysql:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: forensics
-      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      MYSQL_USER: forensics_user
+      MYSQL_PASSWORD: forensics_pass
     volumes:
       - db_data:/var/lib/mysql
     ports:
@@ -15,21 +14,40 @@ services:
     networks:
       - forensics-net
 
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: forensics_user
+      PMA_PASSWORD: forensics_pass
+      PMA_ARBITRARY: 1
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - forensics-net
+    restart: unless-stopped
+
   backend:
     build: ./backend
     environment:
       DB_HOST: mysql
-      DB_USER: root
-      DB_PASS: root
+      DB_USER: forensics_user
+      DB_PASS: forensics_pass
       DB_NAME: forensics
+      DATABASE_URI: mysql+pymysql://forensics_user:forensics_pass@mysql/forensics
       UPLOAD_BASE: /data/uploads
+      NOISEPRINT_MODEL_PATH: /app/noiseprint/weights/model_noiseprint.pth
     volumes:
       - ./backend:/app
       - ./backend/uploads:/data/uploads
     ports:
-      - "5000:5000"
+      - "5000:5000"  # 🔥 zostaje tak jak masz
     depends_on:
       - mysql
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - forensics-net

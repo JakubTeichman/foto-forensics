@@ -14,22 +14,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---- 📁 3. Ustawienia katalogu roboczego ----
 WORKDIR /app
 
-# ---- 📦 4. Kopiuj requirements osobno, by zachować cache ----
+# ---- 📦 4. Kopiuj requirements osobno ----
 COPY requirements.txt .
 
 # ---- ⚡ 5. Aktualizacja pip i instalacja zależności ----
 RUN pip install --upgrade pip setuptools wheel
 
-# 💡 instalacja PyTorch CPU – dużo szybciej niż wersja GPU
+# 💡 instalacja PyTorch CPU
 RUN pip install torch==2.4.1+cpu torchvision==0.19.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 
-# 💡 instalacja pozostałych bibliotek (z pominięciem cache)
+# 💡 instalacja pozostałych bibliotek
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---- 📄 6. Skopiuj resztę projektu ----
 COPY . .
 
-# ---- 🧠 7. Ograniczenie liczby wątków (BM3D fix) ----
+# ---- 🧠 7. Ograniczenie liczby wątków ----
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 ENV OPENBLAS_NUM_THREADS=1
@@ -42,5 +42,5 @@ ENV FLASK_RUN_HOST=0.0.0.0
 # ---- 🚪 9. Otwórz port ----
 EXPOSE 5000
 
-# ---- ▶️ 10. Uruchom Flask bez wątków ----
+# ---- ▶️ 10. Uruchom Flask ----
 CMD ["flask", "run", "--no-debugger", "--no-reload", "--without-threads"]

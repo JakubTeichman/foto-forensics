@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import ChecksumPanel from './CheckSumPanel';
 import NUAReport from './NUAReport';
+import NoiseprintSection from './NoiseprintSection';
 
 interface CheckProps {
   setActiveTab: (tab: string) => void;
@@ -24,7 +25,12 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     setActiveTab('check');
   }, [setActiveTab]);
 
-  const handleCompare = async () => {
+  // ❌ USUWAMY auto-uruchamianie PRNU
+  // useEffect(() => {
+  //   if (bothUploaded) handleComparePRNU();
+  // }, [image1, images2]);
+
+  const handleComparePRNU = async () => {
     if (!image1 || images2.length === 0) return;
 
     setSimilarity(null);
@@ -38,7 +44,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
       images2.forEach((file) => formData.append('images2', file));
       formData.append('denoise_method', denoiseMethod);
 
-      const response = await fetch(`${process.env.REACT_APP_API_BASE}/compare-multiple`, {
+      const response = await fetch('http://localhost:5000/compare-multiple', {
         method: 'POST',
         body: formData,
       });
@@ -61,14 +67,13 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     }
   };
 
-  // 🎨 Funkcja określająca kolor PCE w zależności od wartości
   const getPceColor = (value: number) => {
     if (value < 20) return 'text-red-500';
     if (value < 45) return 'text-orange-500';
     if (value < 55) return 'text-amber-400';
     if (value < 80) return 'text-yellow-400';
     if (value < 95) return 'text-lime-400';
-    if (value < 200) return 'text-green-400';
+    if (value >= 95) return 'text-green-400';
     return 'text-emerald-400';
   };
 
@@ -80,7 +85,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
           Image Comparison
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-          Compare and analyze multiple images to identify photo origin. 
+          Compare and analyze multiple images to identify photo origin.
         </p>
       </div>
 
@@ -105,11 +110,11 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
         />
       </div>
 
-      {/* 🔹 Panel raportu */}
+      {/* 🔹 Sekcja PRNU */}
       {bothUploaded && (
         <div className="mt-10 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/20 backdrop-blur-md">
           <h3 className="text-2xl font-semibold mb-6 text-green-400 tracking-wide">
-            Comparison Report
+            PRNU Comparison Report
           </h3>
 
           {/* 🔧 Metoda odszumiania */}
@@ -126,6 +131,20 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               <option value="wavelet">Wavelet (Fast)</option>
             </select>
           </div>
+
+          {/* 🔘 Przywrócony przycisk */}
+          <button
+            onClick={handleComparePRNU}
+            disabled={loading}
+            className={`${
+              loading
+                ? 'bg-gray-700 cursor-not-allowed opacity-70'
+                : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40'
+            } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
+          >
+            {loading ? 'Processing...' : 'Compare PRNU'}
+          </button>
+
 
           {/* ⚠️ Ostrzeżenie */}
           {warning && (
@@ -172,28 +191,19 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
                 </>
               )}
             </div>
-
-            {/* 🔘 Przyciski */}
-            <div className="flex justify-center">
-              <button
-                onClick={handleCompare}
-                disabled={loading}
-                className={`${
-                  loading
-                    ? 'bg-gray-700 cursor-not-allowed opacity-70'
-                    : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40'
-                } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
-              >
-                {loading ? 'Processing...' : 'Compare'}
-              </button>
-            </div>
           </div>
         </div>
       )}
-        
+
+      {/* 🔹 Sekcja Noiseprint */}
+      {image1 && images2.length > 0 && (
+        <NoiseprintSection evidenceImage={image1} referenceImages={images2} />
+      )}
+
+      {/* 🔹 NUA Report */}
       {image1 && <NUAReport imageFile={image1} referenceImages={images2} />}
 
-      {/* ✅ Panel sum kontrolnych */}
+      {/* 🔹 Checksum Panel */}
       {image1 && <ChecksumPanel files={[image1]} />}
     </div>
   );

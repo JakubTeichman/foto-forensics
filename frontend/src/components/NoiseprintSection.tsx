@@ -10,6 +10,7 @@ interface NoiseprintSectionProps {
 const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, referenceImages }) => {
   const [loading, setLoading] = useState(false);
   const [corr, setCorr] = useState<number | null>(null);
+  const [embeddingSim, setEmbeddingSim] = useState<number | null>(null);
   const [evidenceNoiseprint, setEvidenceNoiseprint] = useState<string | null>(null);
   const [meanNoiseprint, setMeanNoiseprint] = useState<string | null>(null);
   const [statsEvidence, setStatsEvidence] = useState<any | null>(null);
@@ -21,6 +22,7 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
     setLoading(true);
     setError(null);
     try {
+      // === 1️⃣ Klasyczne porównanie ===
       const formData = new FormData();
       formData.append('evidence', evidenceImage);
       referenceImages.forEach((file) => formData.append('references', file));
@@ -31,14 +33,34 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const data = await response.json();
-      setCorr(data.peak_correlation);
+
+      setCorr(data.mean_correlation ?? data.peak_correlation ?? null);
       setEvidenceNoiseprint(`data:image/png;base64,${data.evidence_noiseprint}`);
-      setMeanNoiseprint(`data:image/png;base64,${data.mean_reference_noiseprint}`);
+      setMeanNoiseprint(`data:image/png;base64,${data.mean_reference_noiseprint ?? ''}`);
       setStatsEvidence(data.stats_evidence);
-      setStatsMean(data.stats_mean);
+      setStatsMean(data.stats_mean ?? null);
+
+      // === 2️⃣ Embedding similarity (dla 1. referencji) ===
+      if (referenceImages.length > 0) {
+        const formDataEmb = new FormData();
+        formDataEmb.append('evidence', evidenceImage);
+        formDataEmb.append('reference', referenceImages[0]); // porównanie z pierwszym plikiem
+
+        const embResponse = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/compare_embedding`, {
+          method: 'POST',
+          body: formDataEmb,
+        });
+
+        if (embResponse.ok) {
+          const embData = await embResponse.json();
+          setEmbeddingSim(embData.similarity_score);
+        } else {
+          setEmbeddingSim(null);
+        }
+      }
     } catch (err) {
+      console.error(err);
       setError('Error computing Noiseprint correlation.');
     } finally {
       setLoading(false);
@@ -50,6 +72,14 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
     if (val < 0.5) return 'text-orange-400';
     if (val < 0.7) return 'text-yellow-400';
     if (val < 0.85) return 'text-lime-400';
+    return 'text-green-400';
+  };
+
+  const getSimColor = (val: number) => {
+    if (val < 0.4) return 'text-red-500';
+    if (val < 0.6) return 'text-orange-400';
+    if (val < 0.75) return 'text-yellow-400';
+    if (val < 0.9) return 'text-lime-400';
     return 'text-green-400';
   };
 
@@ -76,7 +106,7 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
 
       {error && <p className="text-red-400 text-center mb-4">{error}</p>}
 
-      {corr !== null && (
+      {(corr !== null || embeddingSim !== null) && (
         <div className="mt-10">
           <div className="flex flex-col md:flex-row justify-between items-start gap-6">
             {/* Evidence */}
@@ -120,13 +150,21 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
             </div>
           </div>
 
-          {/* Wynik korelacji */}
-          <div className="text-center mt-10">
-            <p className={`text-4xl font-bold ${getCorrColor(corr)} drop-shadow-md`}>
-              {corr.toFixed(3)} <span className="text-gray-400 text-lg">Correlation</span>
-            </p>
+          {/* Wyniki */}
+          <div className="text-center mt-10 space-y-4">
+            {corr !== null && (
+              <p className={`text-4xl font-bold ${getCorrColor(corr)} drop-shadow-md`}>
+                {corr.toFixed(3)} <span className="text-gray-400 text-lg">Correlation</span>
+              </p>
+            )}
+            {embeddingSim !== null && (
+              <p className={`text-3xl font-bold ${getSimColor(embeddingSim)} drop-shadow-sm`}>
+                {embeddingSim.toFixed(3)}{' '}
+                <span className="text-gray-400 text-lg">Embedding Similarity</span>
+              </p>
+            )}
             <p className="text-gray-400 mt-2 text-sm italic">
-              Higher correlation indicates same device origin.
+              Higher values indicate stronger evidence of same device origin.
             </p>
           </div>
         </div>

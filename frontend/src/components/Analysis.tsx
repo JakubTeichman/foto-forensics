@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
@@ -41,6 +41,7 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   const [showReport, setShowReport] = useState(false);
   const [isLoadingFullHex, setIsLoadingFullHex] = useState(false);
   const [isFullHexVisible, setIsFullHexVisible] = useState(false);
+  const currentControllerRef = useRef<AbortController | null>(null);
 
   const generatePDF = async () => {
   const reportElement = document.getElementById("analysis-report");
@@ -127,56 +128,81 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedFile) return;
-    setIsAnalyzing(true);
-    setShowReport(false);
-    setIsFullHexVisible(false);
-    setHexData(null);
+   const handleAnalyze = async () => {
+  if (!selectedFile) return;
+  setIsAnalyzing(true);
+  setShowReport(false);
+  setIsFullHexVisible(false);
+  setHexData(null);
 
-    const formData = new FormData();
-    formData.append('image', selectedFile);
+  const formData = new FormData();
+  formData.append("image", selectedFile);
 
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/metadata`, {
-        method: 'POST',
-        body: formData,
+  // ✅ Utwórz kontroler do możliwości anulowania żądania
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  // ✅ Zapisz go do ref, by móc anulować przy zmianie zakładki
+  currentControllerRef.current = controller;
+
+  try {
+    const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/metadata`, {
+      method: "POST",
+      body: formData,
+      signal, // <- ważne: podaj sygnał kontrolny
+    });
+
+    if (signal.aborted) return;
+
+    const data = await res.json();
+
+    if (res.ok) {
+      const hexReader = new FileReader();
+      hexReader.onload = (event) => {
+        const buffer = event.target?.result as ArrayBuffer;
+        const bytes = new Uint8Array(buffer);
+        const hexString = Array.from(bytes)
+          .slice(0, 4096)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join(" ");
+        setHexData(hexString);
+      };
+      hexReader.readAsArrayBuffer(selectedFile);
+
+      setAnalysisResults({
+        metadata: data,
+        manipulationScore: 0,
+        regions: [],
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        const hexReader = new FileReader();
-        hexReader.onload = (event) => {
-          const buffer = event.target?.result as ArrayBuffer;
-          const bytes = new Uint8Array(buffer);
-          const hexString = Array.from(bytes)
-            .slice(0, 4096)
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join(' ');
-          setHexData(hexString);
-        };
-        hexReader.readAsArrayBuffer(selectedFile);
-
-        setAnalysisResults({
-          metadata: data,
-          manipulationScore: 0,
-          regions: [],
-        });
-
-        setShowReport(true);
-      } else {
-        alert(data.error || 'Error analyzing image');
-      }
-    } catch (error) {
-      console.error('Analysis error:', error);
-      alert('Failed to analyze image');
-    } finally {
-      setIsAnalyzing(false);
+      setShowReport(true);
+    } else {
+      alert(data.error || "Error analyzing image");
     }
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.log("⛔ Zapytanie zostało anulowane (zmiana modułu).");
+    } else {
+      console.error("Analysis error:", error);
+      alert("Failed to analyze image");
+    }
+  } finally {
+    setIsAnalyzing(false);
+  }
 
-    if (setActiveTab) setActiveTab('results');
-  };
+  if (setActiveTab) setActiveTab("results");
+};
+
+
+  // 🔹 useEffect — automatyczne anulowanie żądań przy odmontowaniu lub zmianie zakładki
+  React.useEffect(() => {
+    return () => {
+      if (currentControllerRef.current) {
+        currentControllerRef.current.abort(); // <- zatrzymaj fetch
+      }
+    };
+  }, []);
+
 
   const handleShowFullHex = () => {
     if (!selectedFile) return;

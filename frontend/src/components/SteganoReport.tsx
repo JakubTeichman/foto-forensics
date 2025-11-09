@@ -73,9 +73,10 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
   return (
     <div>
       {!result && (
-      <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
-        Steganography Analysis
-      </h3>)}
+        <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
+          Steganography Analysis
+        </h3>
+      )}
 
       {!image && (
         <p className="text-gray-400 italic text-center">
@@ -98,7 +99,7 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
 
       {result && (
         <div className="mt-5 bg-gray-900 border border-gray-800 rounded-xl p-4 transition-all duration-300">
-          <h4 className="text-lg font-semibold text-teal-400 mb-3 text-left ">
+          <h4 className="text-lg font-semibold text-teal-400 mb-3 text-left">
             Steganography Detection Report
           </h4>
 
@@ -126,45 +127,76 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
           </div>
 
           {Object.keys(methodsResults).length > 0 ? (
-            <table className="w-full text-sm border-collapse mt-2">
-              <thead>
-                <tr className="border-b border-gray-700 text-gray-300">
-                  <th className="text-left py-1">Method</th>
-                  <th className="text-left py-1">Score</th>
-                  <th className="text-left py-1">Detection Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(methodsResults).map(([method, data]: any) => {
-                  const scoreValue =
-                    typeof data?.score_calibrated === "number"
-                      ? data.score_calibrated
-                      : typeof data?.score_raw === "number"
-                      ? data.score_raw
-                      : typeof data?.score === "number"
-                      ? data.score
-                      : parseFloat(
-                          data?.score_calibrated || data?.score_raw || data?.score
-                        ) || 0;
+            <>
+              <table className="w-full text-sm border-collapse mt-2">
+                <thead>
+                  <tr className="border-b border-gray-700 text-gray-300">
+                    <th className="text-left py-1">Method</th>
+                    <th className="text-left py-1">Score</th>
+                    <th className="text-left py-1">Detection Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(methodsResults).map(([method, data]: any) => {
+                    const scoreValue =
+                      typeof data?.score_calibrated === "number"
+                        ? data.score_calibrated
+                        : typeof data?.score_raw === "number"
+                        ? data.score_raw
+                        : typeof data?.score === "number"
+                        ? data.score
+                        : parseFloat(
+                            data?.score_calibrated || data?.score_raw || data?.score
+                          ) || 0;
 
-                  const detected = !!data?.detected;
+                    const detected = !!data?.detected;
 
-                  return (
-                    <tr key={method} className="border-b border-gray-800 text-gray-300">
-                      <td className="py-1 font-medium">{method}</td>
-                      <td className="py-1">{scoreValue.toFixed(3)}</td>
-                      <td
-                        className={`py-1 font-semibold ${
-                          detected ? "text-red-400" : "text-green-400"
-                        }`}
+                    return (
+                      <tr
+                        key={method}
+                        className="border-b border-gray-800 text-gray-300"
                       >
-                        {detected ? "Detected" : "Not detected"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <td className="py-1 font-medium">{method}</td>
+                        <td className="py-1">{scoreValue.toFixed(3)}</td>
+                        <td
+                          className={`py-1 font-semibold ${
+                            detected ? "text-red-400" : "text-green-400"
+                          }`}
+                        >
+                          {detected ? "Detected" : "Not detected"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* 🔥 NEW SECTION: Average heatmap visualization */}
+              {result.average_heatmap_base64 && (
+                <div className="mt-6 text-center">
+                  <h5 className="text-md font-semibold text-teal-400 mb-3">
+                    Aggregated Steganalysis Heatmap
+                  </h5>
+                  <div className="flex justify-center">
+                    <img
+                      src={`data:image/png;base64,${result.average_heatmap_base64}`}
+                      alt="Aggregated Steganalysis Heatmap"
+                      className="rounded-xl shadow-lg border border-gray-800 max-w-full h-auto"
+                      style={{
+                        width: "80%",
+                        maxWidth: "480px",
+                        transition: "transform 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Average of all individual method heatmaps.
+                  </p>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-gray-500 italic mt-2 text-center">
               No per-method details available.

@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import MetadataChart from './MetadataChart';
 import GpsMap from './GpsMap';
 import CheckSumBox from './CheckSumPanel';
 import SteganoReport from './SteganoReport';
 import NUAReport from './NUAReport';
 import NoiseprintReport from './NoiseprintReport';
+import HistogramAnalyzer from './HistogramAnalyzer';
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -16,9 +17,9 @@ interface AnalysisResults {
 
 interface AnalysisProps {
   setActiveTab?: (tab: string) => void;
+  abortSignal?: AbortSignal | null;
 }
 
-// ✅ Funkcja pomocnicza — konwersja [39, 28, 689/25] na np. 39.478
 const convertDMS = (arr: any[]): number => {
   if (!Array.isArray(arr) || arr.length < 3) return NaN;
   const [deg, min, sec] = arr;
@@ -41,83 +42,76 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
   const [showReport, setShowReport] = useState(false);
   const [isLoadingFullHex, setIsLoadingFullHex] = useState(false);
   const [isFullHexVisible, setIsFullHexVisible] = useState(false);
-  const currentControllerRef = useRef<AbortController | null>(null);
-
-  const generatePDF = async () => {
-  const reportElement = document.getElementById("analysis-report");
-  if (!reportElement) {
-    alert("⚠️ No report to export!");
-    return;
-  }
-
-  // 🔹 Zapamiętaj aktualny stan sekcji (np. czy HEX rozwinięty)
-  const prevScrollStates = Array.from(reportElement.querySelectorAll(".overflow-auto")).map((el) => ({
-    el,
-    originalMaxHeight: (el as HTMLElement).style.maxHeight,
-    originalOverflow: (el as HTMLElement).style.overflow,
-  }));
-
-  // 🔹 Tymczasowe rozwinięcie wszystkich przewijalnych sekcji
-  prevScrollStates.forEach(({ el }) => {
-    (el as HTMLElement).style.maxHeight = "none";
-    (el as HTMLElement).style.overflow = "visible";
-  });
-
-  // 🔹 Ukryj elementy interaktywne (przyciski, navbar, footer itp.)
-  const hiddenElements = Array.from(document.querySelectorAll("button, nav, footer"));
-  hiddenElements.forEach((el) => ((el as HTMLElement).style.display = "none"));
-
-  // 🔹 Zrób zrzut widoku jako canvas
-  const canvas = await html2canvas(reportElement, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: "#1a1a1a",
-  } as any);
-
-  // 🔹 Przywróć układ po renderze
-  prevScrollStates.forEach(({ el, originalMaxHeight, originalOverflow }) => {
-    (el as HTMLElement).style.maxHeight = originalMaxHeight;
-    (el as HTMLElement).style.overflow = originalOverflow;
-  });
-  hiddenElements.forEach((el) => ((el as HTMLElement).style.display = ""));
-
-  // 🔹 Konwertuj na PDF
-    const imgData = canvas.toDataURL("image/png");
   
-    // Use A4 width (210 mm) as the PDF width and compute the height in mm
+  // 🔹 Lista aktywnych kontrolerów (żeby można było je anulować)
+  const currentControllers = useRef<AbortController[]>([]);
+
+  // ✅ Funkcja anulująca wszystkie trwające zapytania
+  const abortAllRequests = () => {
+    if (currentControllers.current.length > 0) {
+      console.log("⛔ Aborting all active requests...");
+      currentControllers.current.forEach(controller => controller.abort());
+      currentControllers.current = [];
+    }
+  };
+
+  // ✅ Zatrzymaj zapytania przy odmontowaniu komponentu
+  useEffect(() => {
+    return () => {
+      abortAllRequests();
+    };
+  }, []);
+
+  // 📄 Funkcja generująca raport PDF
+  const generatePDF = async () => {
+    const reportElement = document.getElementById("analysis-report");
+    if (!reportElement) {
+      alert("⚠️ No report to export!");
+      return;
+    }
+
+    const prevScrollStates = Array.from(reportElement.querySelectorAll(".overflow-auto")).map((el) => ({
+      el,
+      originalMaxHeight: (el as HTMLElement).style.maxHeight,
+      originalOverflow: (el as HTMLElement).style.overflow,
+    }));
+
+    prevScrollStates.forEach(({ el }) => {
+      (el as HTMLElement).style.maxHeight = "none";
+      (el as HTMLElement).style.overflow = "visible";
+    });
+
+    const hiddenElements = Array.from(document.querySelectorAll("button, nav, footer"));
+    hiddenElements.forEach((el) => ((el as HTMLElement).style.display = "none"));
+
+    const canvas = await html2canvas(reportElement, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#1a1a1a",
+    } as any);
+
+    prevScrollStates.forEach(({ el, originalMaxHeight, originalOverflow }) => {
+      (el as HTMLElement).style.maxHeight = originalMaxHeight;
+      (el as HTMLElement).style.overflow = originalOverflow;
+    });
+    hiddenElements.forEach((el) => ((el as HTMLElement).style.display = ""));
+
+    const imgData = canvas.toDataURL("image/png");
     const pageWidthMM = 210;
     const imgWidth = pageWidthMM;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  
+
     const pdf = new jsPDF({
       orientation: "p",
       unit: "mm",
-      format: [pageWidthMM, imgHeight], // width and computed height in mm
+      format: [pageWidthMM, imgHeight],
     });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
 
-
-  let position = 0;
-  if (imgHeight > pageHeight) {
-    // jeśli zrzut jest dłuższy niż strona A4 → podziel na strony
-    let heightLeft = imgHeight;
-    let y = 0;
-    while (heightLeft > 0) {
-      pdf.addImage(imgData, "PNG", 0, y ? -y : 0, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      y += pageHeight;
-      if (heightLeft > 0) pdf.addPage();
-    }
-  } else {
     pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-  }
+    pdf.save(`FotoForensics_Report_${selectedFile?.name || "image"}.pdf`);
+  };
 
-  // 🔹 Zapisz PDF
-  pdf.save(`FotoForensics_Report_${selectedFile?.name || "image"}.pdf`);
-};
-
-
+  // 📤 Obsługa wyboru pliku
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
@@ -128,35 +122,42 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
     }
   };
 
-   const handleAnalyze = async () => {
-  if (!selectedFile) return;
-  setIsAnalyzing(true);
-  setShowReport(false);
-  setIsFullHexVisible(false);
-  setHexData(null);
+  // 🧠 Analiza pliku z obsługą AbortController
+  const handleAnalyze = async () => {
+    if (!selectedFile) return;
 
-  const formData = new FormData();
-  formData.append("image", selectedFile);
+    abortAllRequests(); // anuluj wszystkie wcześniejsze zapytania
 
-  // ✅ Utwórz kontroler do możliwości anulowania żądania
-  const controller = new AbortController();
-  const signal = controller.signal;
+    setIsAnalyzing(true);
+    setShowReport(false);
+    setHexData(null);
 
-  // ✅ Zapisz go do ref, by móc anulować przy zmianie zakładki
-  currentControllerRef.current = controller;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    currentControllers.current.push(controller);
 
-  try {
-    const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/metadata`, {
-      method: "POST",
-      body: formData,
-      signal, // <- ważne: podaj sygnał kontrolny
-    });
+    const formData = new FormData();
+    formData.append("image", selectedFile);
 
-    if (signal.aborted) return;
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE}/analyze/metadata`, {
+        method: "POST",
+        body: formData,
+        signal,
+      });
 
-    const data = await res.json();
+      if (signal.aborted) {
+        console.warn("⏹️ Fetch aborted before completion");
+        return;
+      }
 
-    if (res.ok) {
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server error: ${text}`);
+      }
+
+      const data = await res.json();
+
       const hexReader = new FileReader();
       hexReader.onload = (event) => {
         const buffer = event.target?.result as ArrayBuffer;
@@ -174,36 +175,20 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
         manipulationScore: 0,
         regions: [],
       });
-
       setShowReport(true);
-    } else {
-      alert(data.error || "Error analyzing image");
-    }
-  } catch (error: any) {
-    if (error.name === "AbortError") {
-      console.log("⛔ Zapytanie zostało anulowane (zmiana modułu).");
-    } else {
-      console.error("Analysis error:", error);
-      alert("Failed to analyze image");
-    }
-  } finally {
-    setIsAnalyzing(false);
-  }
-
-  if (setActiveTab) setActiveTab("results");
-};
-
-
-  // 🔹 useEffect — automatyczne anulowanie żądań przy odmontowaniu lub zmianie zakładki
-  React.useEffect(() => {
-    return () => {
-      if (currentControllerRef.current) {
-        currentControllerRef.current.abort(); // <- zatrzymaj fetch
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        console.log("🛑 Request canceled by user or component unmounted.");
+      } else {
+        console.error("❌ Analysis failed:", error);
+        alert("Failed to analyze image.");
       }
-    };
-  }, []);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-
+  // 📜 Funkcje pomocnicze (HEX, kopiowanie itd.)
   const handleShowFullHex = () => {
     if (!selectedFile) return;
     setIsLoadingFullHex(true);
@@ -227,52 +212,51 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
       alert('✅ HEX copied to clipboard!');
     }
   };
-// ✅ Wyodrębnienie GPS (obsługa różnych formatów: zagnieżdżone lub płaskie)
-let lat: number | null = null;
-let lon: number | null = null;
 
-if (analysisResults?.metadata) {
-  // Szukamy danych GPS zarówno w zagnieżdżonych jak i płaskich strukturach
-  const metadata = analysisResults.metadata;
-  const gps =
-    metadata['GPS Info'] && Object.keys(metadata['GPS Info']).length > 0
-      ? metadata['GPS Info']
-      : metadata;
+  // 📍 Parsowanie współrzędnych GPS
+  let lat: number | null = null;
+  let lon: number | null = null;
 
-  const rawLat = gps['GPS GPSLatitude'] || gps['GPSLatitude'];
-  const rawLon = gps['GPS GPSLongitude'] || gps['GPSLongitude'];
-  const latRef = gps['GPS GPSLatitudeRef'] || gps['GPSLatitudeRef'];
-  const lonRef = gps['GPS GPSLongitudeRef'] || gps['GPSLongitudeRef'];
+  if (analysisResults?.metadata) {
+    const metadata = analysisResults.metadata;
+    const gps =
+      metadata['GPS Info'] && Object.keys(metadata['GPS Info']).length > 0
+        ? metadata['GPS Info']
+        : metadata;
 
-  if (rawLat && rawLon) {
-    try {
-      const parseCoord = (coordStr: string): number[] => {
-        const cleaned = coordStr.replace(/\s/g, '').replace(/^\[|\]$/g, '');
-        return cleaned.split(',').map((val) => {
-          if (val.includes('/')) {
-            const [num, den] = val.split('/').map(Number);
-            return num / den;
-          }
-          return Number(val);
-        });
-      };
+    const rawLat = gps['GPS GPSLatitude'] || gps['GPSLatitude'];
+    const rawLon = gps['GPS GPSLongitude'] || gps['GPSLongitude'];
+    const latRef = gps['GPS GPSLatitudeRef'] || gps['GPSLatitudeRef'];
+    const lonRef = gps['GPS GPSLongitudeRef'] || gps['GPSLongitudeRef'];
 
-      const latArr = Array.isArray(rawLat) ? rawLat : parseCoord(rawLat);
-      const lonArr = Array.isArray(rawLon) ? rawLon : parseCoord(rawLon);
+    if (rawLat && rawLon) {
+      try {
+        const parseCoord = (coordStr: string): number[] => {
+          const cleaned = coordStr.replace(/\s/g, '').replace(/^\[|\]$/g, '');
+          return cleaned.split(',').map((val) => {
+            if (val.includes('/')) {
+              const [num, den] = val.split('/').map(Number);
+              return num / den;
+            }
+            return Number(val);
+          });
+        };
 
-      lat = convertDMS(latArr);
-      lon = convertDMS(lonArr);
+        const latArr = Array.isArray(rawLat) ? rawLat : parseCoord(rawLat);
+        const lonArr = Array.isArray(rawLon) ? rawLon : parseCoord(rawLon);
 
-      if (latRef === 'S') lat = -lat;
-      if (lonRef === 'W') lon = -lon;
+        lat = convertDMS(latArr);
+        lon = convertDMS(lonArr);
 
-      console.log('📍 Wynik GPS (Decimal Degrees):', { lat, lon });
-    } catch (err) {
-      console.error('❌ Błąd parsowania GPS:', err);
+        if (latRef === 'S') lat = -lat;
+        if (lonRef === 'W') lon = -lon;
+
+        console.log('📍 Wynik GPS (Decimal Degrees):', { lat, lon });
+      } catch (err) {
+        console.error('❌ Błąd parsowania GPS:', err);
+      }
     }
   }
-}
-
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -527,6 +511,8 @@ if (analysisResults?.metadata) {
                         </div>
                       </div>
                     )}
+                    
+                    <HistogramAnalyzer image={selectedFile} />
 
                   </div>
                     {/* --- Raport steganografii --- */}

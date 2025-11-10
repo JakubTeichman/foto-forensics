@@ -2,7 +2,8 @@
 
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-import os
+from stegano_compare.stegano_compare_main import analyze_images
+import os, tempfile
 import traceback
 from PIL import Image
 
@@ -110,3 +111,21 @@ def analyze_steganography_full():
         return jsonify({
             "error": f"Full steganography analysis failed: {str(e)}"
         }), 500
+
+@steganography_bp.route("/stegano/compare", methods=["POST"])
+def stegano_compare():
+    if "original" not in request.files or "suspicious" not in request.files:
+        return jsonify({"error": "Missing files"}), 400
+
+    orig = request.files["original"]
+    susp = request.files["suspicious"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        orig_path = os.path.join(tmpdir, orig.filename)
+        susp_path = os.path.join(tmpdir, susp.filename)
+        orig.save(orig_path)
+        susp.save(susp_path)
+
+        result = analyze_images(orig_path, susp_path)
+
+    return jsonify(result)

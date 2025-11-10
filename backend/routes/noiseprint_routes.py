@@ -5,36 +5,104 @@ import cv2
 from io import BytesIO
 from PIL import Image
 import base64
-from noiseprint.model import FullConvNet as NoiseprintModel
+import traceback
+import datetime
+import sys
 from numpy.linalg import norm
 
-noiseprint_bp = Blueprint('noiseprint', __name__)
+from noiseprint.model import FullConvNet as NoiseprintModel
 
-# ---- 🔧 Inicjalizacja modelu ----
+noiseprint_bp = Blueprint("noiseprint", __name__)
+
+# ---- 🧠 Load model ----
 model = NoiseprintModel()
-model.load_state_dict(torch.load('/app/noiseprint/weights/model_noiseprint.pth', map_location='cpu'))
-model.eval()
+try:
+    model.load_state_dict(torch.load("/app/noiseprint/weights/model_noiseprint.pth", map_location="cpu"))
+    model.eval()
+except Exception as e:
+    print(f"[ERROR] Failed to load noiseprint model: {str(e)}", file=sys.stderr)
 
 
-# ---- 🧩 Pomocnicze funkcje ----
+# ---- 🧩 Logging ----
+def log_error(msg: str):
+    log_path = "noiseprint_errors.log"
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {msg}\n{'-'*80}\n\n")
+    print(msg, file=sys.stderr)
+
+
+# ---- 🧩 Image preprocessing ----
 def preprocess_image(image):
-    """Przygotowuje obraz do generowania Noiseprintu (wyrównanie + filtracja)."""
+    """
+    Convert image to grayscale tensor.
+    Automatically downscale if width or height > 3000 px.
+    """
     if not isinstance(image, Image.Image):
-        image = Image.open(BytesIO(image)).convert('L')
-    else:
-        image = image.convert('L')
+        image = Image.open(BytesIO(image))
+    image = image.convert("L")
+
+    max_dim = max(image.size)
+    MAX_SAFE_SIZE = 3000
+    if max_dim > MAX_SAFE_SIZE:
+        scale = MAX_SAFE_SIZE / max_dim
+        new_size = (int(image.size[0] * scale), int(image.size[1] * scale))
+        orig_size = image.size
+        image = image.resize(new_size, Image.Resampling.LANCZOS)
+        log_error(f"🪶 Image automatically downscaled from {orig_size} to {new_size} for stability")
 
     img = np.array(image, dtype=np.float32)
-    # 🔹 filtr high-pass (redukuje treść, wzmacnia szum)
     img_blur = cv2.GaussianBlur(img, (3, 3), 0)
     img = cv2.addWeighted(img, 1.5, img_blur, -0.5, 0)
     img = img / 255.0
-    img_tensor = torch.tensor(img).unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
-    return img_tensor
+    return torch.tensor(img).unsqueeze(0).unsqueeze(0)
+
+
+# ---- 🧩 Noiseprint generation ----
+def generate_noiseprint(img_tensor):
+    """Generate noiseprint safely."""
+    with torch.no_grad():
+        noise = model(img_tensor).squeeze().cpu().numpy()
+    return noise
+
+
+# ---- 🧮 Helpers ----
+def local_normalize(arr):
+    arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    std = np.std(arr)
+    if std < 1e-8:
+        return arr
+    return (arr - np.mean(arr)) / std
+
+
+def cross_correlation(a, b):
+    """Normalized cross-correlation (NCC)."""
+    a = a - np.mean(a)
+    b = b - np.mean(b)
+    denom = np.sqrt(np.sum(a ** 2) * np.sum(b ** 2))
+    if denom == 0:
+        return 0.0
+    return float(np.sum(a * b) / denom)
+
+
+def diff_energy(a, b):
+    """Difference energy between two noiseprints."""
+    diff = np.abs(a - b)
+    return float(np.sum(diff ** 2))
+
+
+def cosine_similarity(a, b):
+    """Cosine similarity between embeddings."""
+    a = a.flatten()
+    b = b.flatten()
+    denom = (norm(a) * norm(b))
+    if denom == 0:
+        return 0.0
+    cos_sim = np.dot(a, b) / denom
+    return float((cos_sim + 1) / 2)  # scale [0,1]
 
 
 def compute_noise_stats(noise):
-    """Oblicza statystyki Noiseprintu."""
     noise = np.nan_to_num(noise, nan=0.0, posinf=0.0, neginf=0.0)
     return {
         "mean": float(np.mean(noise)),
@@ -44,89 +112,64 @@ def compute_noise_stats(noise):
     }
 
 
-def generate_noiseprint(image_tensor):
-    """Generuje Noiseprint z obrazu."""
-    with torch.no_grad():
-        noise = model(image_tensor).squeeze().cpu().numpy()
-    return noise
-
-
-def local_normalize(arr):
-    """Lokalna normalizacja z zabezpieczeniem przed NaN i zerowym rozrzutem."""
-    arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
-    std = np.std(arr)
-    if std < 1e-8:
-        return arr
-    return (arr - np.mean(arr)) / std
-
-
-def cross_correlation(a, b):
-    """Oblicza współczynnik korelacji krzyżowej (NCC)."""
-    a = a - np.mean(a)
-    b = b - np.mean(b)
-    denom = np.sqrt(np.sum(a**2) * np.sum(b**2))
-    if denom == 0:
-        return 0.0
-    return float(np.sum(a * b) / denom)
-
-
-def diff_energy(a, b):
-    """Energia różnicowa między noiseprintami."""
-    diff = np.abs(a - b)
-    return float(np.sum(diff ** 2))
-
-
-def cosine_similarity(a, b):
-    """Oblicza podobieństwo kosinusowe między wektorami embeddingów."""
-    a = a.flatten()
-    b = b.flatten()
-    denom = (norm(a) * norm(b))
-    if denom == 0:
-        return 0.0
-    cos_sim = np.dot(a, b) / denom
-    return float((cos_sim + 1) / 2)  # skala [0, 1]
-
-
-# ---- 🧠 ROUTE: generowanie Noiseprint ----
-@noiseprint_bp.route('/generate', methods=['POST'])
+# ---- ⚙️ ROUTE: Noiseprint generation ----
+@noiseprint_bp.route("/generate", methods=["POST"])
 def generate():
     try:
-        file = request.files['image']
-        img = Image.open(file.stream).convert('RGB')
-        img_tensor = preprocess_image(img)
-        noise = generate_noiseprint(img_tensor)
+        file = request.files.get("image")
+        if not file:
+            return jsonify({"error": "No image file provided."}), 400
+
+        try:
+            img = Image.open(file.stream).convert("RGB")
+        except Exception:
+            log_error(f"❌ Failed to open image:\n{traceback.format_exc()}")
+            return jsonify({"error": "Invalid or corrupted image file."}), 400
+
+        try:
+            img_tensor = preprocess_image(img)
+            noise = generate_noiseprint(img_tensor)
+        except MemoryError:
+            log_error("❌ System ran out of memory (MemoryError)")
+            return jsonify({"error": "Image too large for processing. Try smaller file."}), 500
+        except Exception:
+            log_error(f"❌ Exception in noiseprint generation:\n{traceback.format_exc()}")
+            return jsonify({"error": "Noiseprint generation failed."}), 500
 
         stats = compute_noise_stats(noise)
-        _, buffer = cv2.imencode('.png', (local_normalize(noise) * 127 + 128).astype(np.uint8))
-        encoded = base64.b64encode(buffer).decode('utf-8')
+        normalized = local_normalize(noise)
+        _, buffer = cv2.imencode(".png", (normalized * 127 + 128).astype(np.uint8))
+        encoded = base64.b64encode(buffer).decode("utf-8")
 
-        return jsonify({
-            'noiseprint': encoded,
-            'stats': stats
-        })
-    except Exception as e:
-        return jsonify({'error': f'Noiseprint generation failed: {str(e)}'}), 500
+        response = {"noiseprint": encoded, "stats": stats}
+
+        if max(img.size) > 3000:
+            response["info"] = "⚠️ Image was automatically downscaled for processing stability."
+
+        return jsonify(response)
+
+    except Exception:
+        log_error(f"❗ Uncaught top-level error:\n{traceback.format_exc()}")
+        return jsonify({"error": "Unexpected backend error."}), 500
 
 
-# ---- ⚖️ ROUTE: porównanie Noiseprintów (klasyczne NCC + energia różnicowa) ----
+# ---- ⚖️ ROUTE: Compare multiple noiseprints ----
 @noiseprint_bp.route('/compare', methods=['POST'])
 def compare():
     try:
         evidence_file = request.files['evidence']
         refs = request.files.getlist('references')
 
-        # --- 1️⃣ Noiseprint próbki dowodowej
+        # 1️⃣ Noiseprint próbki dowodowej
         evidence_tensor = preprocess_image(Image.open(evidence_file.stream))
-        evidence_np = generate_noiseprint(evidence_tensor)
-        evidence_np = local_normalize(evidence_np)
+        evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
 
-        # --- 2️⃣ Porównanie z każdą referencją
-        correlations = []
-        diff_energies = []
+        correlations, diff_energies = [], []
+
+        # 2️⃣ Porównanie z każdą referencją
         for ref_file in refs:
             ref_tensor = preprocess_image(Image.open(ref_file.stream))
-            ref_np = generate_noiseprint(ref_tensor)
-            ref_np = local_normalize(ref_np)
+            ref_np = local_normalize(generate_noiseprint(ref_tensor))
 
             # dopasowanie rozmiaru
             if ref_np.shape != evidence_np.shape:
@@ -138,13 +181,12 @@ def compare():
             correlations.append(corr)
             diff_energies.append(diff_en)
 
-        # --- 3️⃣ Statystyki wyników
+        # 3️⃣ Statystyki wyników
         mean_corr = float(np.mean(correlations))
         std_corr = float(np.std(correlations))
         mean_diff_en = float(np.mean(diff_energies))
 
-        # --- 4️⃣ Obrazy (dla wizualizacji)
-        _, buf_evidence = cv2.imencode('.png', (local_normalize(evidence_np) * 127 + 128).astype(np.uint8))
+        _, buf_evidence = cv2.imencode('.png', (evidence_np * 127 + 128).astype(np.uint8))
 
         return jsonify({
             'evidence_noiseprint': base64.b64encode(buf_evidence).decode('utf-8'),
@@ -156,10 +198,11 @@ def compare():
         })
 
     except Exception as e:
+        log_error(f"❌ Noiseprint comparison failed:\n{traceback.format_exc()}")
         return jsonify({'error': f'Noiseprint comparison failed: {str(e)}'}), 500
 
 
-# ---- 🧬 ROUTE: porównanie Noiseprintów (embedding similarity / cosine) ----
+# ---- 🧬 ROUTE: Embedding cosine similarity ----
 @noiseprint_bp.route('/compare_embedding', methods=['POST'])
 def compare_embedding():
     """
@@ -170,21 +213,17 @@ def compare_embedding():
         evidence_file = request.files['evidence']
         reference_file = request.files['reference']
 
-        # --- Generowanie Noiseprintów ---
         evidence_tensor = preprocess_image(Image.open(evidence_file.stream))
         reference_tensor = preprocess_image(Image.open(reference_file.stream))
 
         evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
         reference_np = local_normalize(generate_noiseprint(reference_tensor))
 
-        # Dopasowanie rozmiarów
         if evidence_np.shape != reference_np.shape:
             reference_np = cv2.resize(reference_np, (evidence_np.shape[1], evidence_np.shape[0]))
 
-        # --- Obliczenie embedding similarity ---
         similarity = cosine_similarity(evidence_np, reference_np)
 
-        # --- Przygotowanie wizualizacji ---
         _, buf_evidence = cv2.imencode('.png', (evidence_np * 127 + 128).astype(np.uint8))
         _, buf_reference = cv2.imencode('.png', (reference_np * 127 + 128).astype(np.uint8))
 
@@ -198,4 +237,5 @@ def compare_embedding():
         })
 
     except Exception as e:
+        log_error(f"❌ Embedding comparison failed:\n{traceback.format_exc()}")
         return jsonify({'error': f'Embedding comparison failed: {str(e)}'}), 500

@@ -86,11 +86,11 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({ evidenceImage, re
   return (
     <div className="mt-12 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/30 backdrop-blur-md">
       <h3 className="text-2xl font-semibold mb-6 text-green-400 tracking-wide">
-        Noiseprint Comparison Report
+        Noiseprint Comparison Report + Embedding Similarity
       </h3>
 
       {/* 🔘 Przycisk */}
-      <div className="flex justify-center mb-8">
+      <div className="flex justify-left mb-8">
         <button
           onClick={handleNoiseprintCompare}
           disabled={loading}

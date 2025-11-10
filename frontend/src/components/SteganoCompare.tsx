@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import CheckSumPanel from './CheckSumPanel';
+import SteganoCompareSection from './SteganoCompareSection'; // 🔹 importujemy nasz nowy komponent
 
 interface SteganoCompareProps {
   setActiveTab: (tab: string) => void;
@@ -87,13 +88,26 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
               {integrityResult === 'passed' ? (
                 <p className="text-lg">Integrity verified — the files are identical.</p>
               ) : (
-                <p className="text-lg">Integrity check failed — the files differ.</p>
+                <p className="text-lg">
+                  Integrity check failed — the files differ. Launching steganographic analysis...
+                </p>
               )}
             </div>
           )}
 
-          {/* CheckSumPanel (tylko do wyświetlenia) */}
+          {/* CheckSumPanel */}
+          {/* @ts-ignore */}
           <CheckSumPanel files={[image1, image2].filter(Boolean) as File[]} />
+
+          {/* 🔹 SteganoCompareSection (tylko jeśli integrity failed) */}
+          {integrityResult === 'failed' && (
+            <div className="mt-8">
+              <SteganoCompareSection
+                originalFile={image1}
+                suspiciousFile={image2}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

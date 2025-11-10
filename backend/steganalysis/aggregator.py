@@ -4,8 +4,6 @@ import io
 from PIL import Image
 
 # Classic
-from .classic.lsb_histogram_analysis import analyze as lsb_analyze
-from .classic.chi_square_analysis import analyze as chi_analyze
 from .classic.rs_analysis import analyze as rs_analyze
 
 # Statistical
@@ -20,8 +18,6 @@ from .statistical.cooccurrence_analysis import analyze as cooc_analyze
 # from .cnn.noiseprint_extractor import analyze as noiseprint_analyze
 
 SUPPORTED_METHODS = [
-    ("lsb_histogram", lsb_analyze),
-    ("chi_square", chi_analyze),
     ("rs_analysis", rs_analyze),
     ("noise_residuals", noise_residuals_analyze),
     ("wavelet", wavelet_analyze),

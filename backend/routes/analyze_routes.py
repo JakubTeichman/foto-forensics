@@ -61,7 +61,7 @@ def analyze_nua():
     with torch.no_grad():
         output = model(tensor)
         prob = torch.softmax(output, dim=1)[0, 1].item()  # prawdopodobieństwo klasy 1 (np. 'nua_paired')
-        detected = prob > 0.5
+        detected = prob > 0.55
 
     return jsonify({
         "detected": bool(detected),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 interface SteganoReportProps {
   image: File | null;
@@ -9,83 +9,108 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 Automatyczna analiza po wczytaniu obrazu
-  useEffect(() => {
-    if (!image) return;
+  const analyzeStegano = async () => {
+    if (!image) {
+      setError("Please select an image before analysis.");
+      return;
+    }
 
-    const analyzeStegano = async () => {
-      setIsAnalyzing(true);
-      setError(null);
-      setResult(null);
+    setIsAnalyzing(true);
+    setError(null);
+    setResult(null);
 
-      const formData = new FormData();
-      formData.append("file", image);
+    const formData = new FormData();
+    formData.append("file", image);
 
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_BASE}/stegano/analyze`, {
-          method: "POST",
-          body: formData,
-        });
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE}/stegano/analyze`, {
+        method: "POST",
+        body: formData,
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (res.ok) {
-          setResult(data);
-        } else {
-          setError(data.error || "Steganography analysis failed.");
-        }
-      } catch (err) {
-        console.error("Error analyzing steganography:", err);
-        setError("Failed to connect to backend.");
-      } finally {
-        setIsAnalyzing(false);
+      if (res.ok) {
+        setResult(data);
+      } else {
+        setError(data.error || "Steganography analysis failed.");
       }
-    };
+    } catch (err) {
+      console.error("Error analyzing steganography:", err);
+      setError("Failed to connect to backend.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-    analyzeStegano();
-  }, [image]);
-
-  // 🔹 Pomocnicza funkcja – wyciąga wyniki metod niezależnie od struktury odpowiedzi
   const extractMethods = (resp: any) => {
     if (!resp) return {};
-
-    if (resp.report?.analysis_results && typeof resp.report.analysis_results === "object") {
-      return resp.report.analysis_results;
-    }
-    if (resp.details?.methods_results && typeof resp.details.methods_results === "object") {
-      return resp.details.methods_results;
-    }
+    if (resp.report?.analysis_results) return resp.report.analysis_results;
+    if (resp.details?.methods_results) return resp.details.methods_results;
     if (resp.details && typeof resp.details === "object") {
       const maybe = Object.entries(resp.details).every(
         ([_, v]) => v && typeof v === "object" && ("score" in v || "detected" in v)
       );
       if (maybe) return resp.details;
     }
-    if (resp.analysis_results && typeof resp.analysis_results === "object") {
-      return resp.analysis_results;
-    }
-
+    if (resp.analysis_results) return resp.analysis_results;
     return {};
   };
 
   const methodsResults = extractMethods(result);
 
+  // 🔹 Obliczanie procentu wykryć
+  const totalMethods = Object.keys(methodsResults).length;
+  const detectedCount = Object.values(methodsResults).filter((m: any) => m?.detected).length;
+  const detectionRatio = totalMethods > 0 ? detectedCount / totalMethods : 0;
+
+  // 🔹 Opisowy poziom wykrycia
+  let detectionLabel = "No hidden data detected.";
+  let detectionColor = "text-green-400";
+  if (detectionRatio >= 0.25 && detectionRatio <= 0.5) {
+    detectionLabel = "Possibility of hidden data.";
+    detectionColor = "text-orange-400";
+  } else if (detectionRatio > 0.5) {
+    detectionLabel = "Hidden data detected!";
+    detectionColor = "text-red-400";
+  } else if (detectionRatio > 0 && detectionRatio < 0.25) {
+    detectionLabel = "Low possibility of hidden data.";
+    detectionColor = "text-yellow-400";
+  }
+
   return (
     <div>
-      {!result && (
-        <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
-          Steganography Analysis
-        </h3>
-      )}
+      <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
+        Steganography Analysis
+      </h3>
 
       {!image && (
-        <p className="text-gray-400 italic text-center">
+        <p className="text-gray-400 italic text-center mb-4">
           No image selected for analysis.
         </p>
       )}
 
+      {/* 🔹 Przycisk analizy */}
+      {!result && (
+      <div className="flex justify-left mb-4">
+        <button
+          onClick={analyzeStegano}
+          disabled={!image || isAnalyzing}
+          className={`px-5 py-2 rounded-lg font-semibold transition-all duration-300 ${
+            !image
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+              : isAnalyzing
+              ? "bg-gray-600 text-gray-300 cursor-wait"
+              : "bg-teal-600 hover:bg-teal-700 text-white shadow-md"
+          }`}
+        >
+          {isAnalyzing ? "Analyzing..." : "Run Steganography Analysis"}
+        </button>
+      </div>
+      )}
+
       {isAnalyzing && (
-        <div className="flex flex-col items-center py-6">
+        <div className="flex flex-col items-center py-4">
           <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm mt-3 text-gray-400">
             Generating steganography analysis...
@@ -93,36 +118,21 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
         </div>
       )}
 
-      {error && (
-        <p className="text-red-500 mt-4 font-medium text-center">⚠️ {error}</p>
-      )}
+      {error && <p className="text-red-500 mt-4 font-medium text-center">⚠️ {error}</p>}
 
       {result && (
-        <div className="mt-5 bg-gray-900 border border-gray-800 rounded-xl p-4 transition-all duration-300">
+        <div
+          className={`mt-5 bg-gray-900 border border-gray-800 rounded-xl p-5 transition-all duration-500`}
+        >
           <h4 className="text-lg font-semibold text-teal-400 mb-3 text-left">
             Steganography Detection Report
           </h4>
 
           <div className="mb-3 text-left">
-            {result.hidden_detected ? (
-              <div className="text-red-400 font-semibold">
-                Hidden data detected!
-                {result.detected_methods?.length > 0 && (
-                  <span className="text-gray-400 ml-2">
-                    ({result.detected_methods.join(", ")})
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="text-green-400 font-semibold">
-                No hidden data detected.
-              </div>
-            )}
+            <div className={`font-semibold ${detectionColor}`}>{detectionLabel}</div>
             <div className="text-xs text-gray-500 mt-1">
-              Methods run: {result.total_methods ?? Object.keys(methodsResults).length}
-              {result.positive_count !== undefined
-                ? ` — positives: ${result.positive_count}`
-                : ""}
+              Methods run: {totalMethods} — positives: {detectedCount} (
+              {(detectionRatio * 100).toFixed(1)}%)
             </div>
           </div>
 
@@ -152,10 +162,7 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
                     const detected = !!data?.detected;
 
                     return (
-                      <tr
-                        key={method}
-                        className="border-b border-gray-800 text-gray-300"
-                      >
+                      <tr key={method} className="border-b border-gray-800 text-gray-300">
                         <td className="py-1 font-medium">{method}</td>
                         <td className="py-1">{scoreValue.toFixed(3)}</td>
                         <td
@@ -171,7 +178,7 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
                 </tbody>
               </table>
 
-              {/* 🔥 NEW SECTION: Average heatmap visualization */}
+              {/* 🔥 Heatmapa — zawsze pokazuj jeśli jest dostępna */}
               {result.average_heatmap_base64 && (
                 <div className="mt-6 text-center">
                   <h5 className="text-md font-semibold text-teal-400 mb-3">
@@ -187,8 +194,12 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
                         maxWidth: "480px",
                         transition: "transform 0.3s ease",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.transform = "scale(1.03)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.transform = "scale(1.0)")
+                      }
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">

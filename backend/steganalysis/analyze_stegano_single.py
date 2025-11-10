@@ -7,8 +7,6 @@ import base64
 from io import BytesIO
 
 # --- Classic methods ---
-from steganalysis.classic.chi_square_analysis import analyze as chi_square_analyze
-from steganalysis.classic.lsb_histogram_analysis import analyze as lsb_histogram_analyze
 from steganalysis.classic.rs_analysis import analyze as rs_analyze
 
 # --- Statistical methods ---
@@ -33,8 +31,6 @@ class AnalyzeSteganoSingle:
         # Register available analysis methods
         self.methods = {
             # --- Classic ---
-            "chi_square": chi_square_analyze,
-            "lsb_histogram": lsb_histogram_analyze,
             "rs_analysis": rs_analyze,
 
             # --- Statistical ---

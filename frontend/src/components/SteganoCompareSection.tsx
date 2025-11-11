@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Loader2, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import HeatmapViewer from "./HeatmapViewer";
 
 interface SteganoReport {
@@ -60,6 +60,34 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   const formatValue = (val: number | null) =>
     val !== null && !isNaN(val) ? val.toFixed(4) : "–";
 
+  // 🧠 ANALIZA PODOBIEŃSTWA
+  let similarityLevel: "high" | "medium" | "low" | null = null;
+
+  if (report && report.mse !== null && report.ssim !== null) {
+  if (report.mse < 0.001 && report.ssim > 0.98) similarityLevel = "high";
+  else if (report.mse < 0.01 && report.ssim > 0.9) similarityLevel = "medium";
+  else similarityLevel = "low";
+}
+
+  // 🎨 Kolory dla poziomów podobieństwa
+  const levelConfig = {
+    high: {
+      icon: <CheckCircle className="w-5 h-5 text-green-400" />,
+      text: "Images are nearly identical.",
+      bg: "bg-green-900/30 border-green-700 text-green-300",
+    },
+    medium: {
+      icon: <AlertTriangle className="w-5 h-5 text-yellow-400" />,
+      text: "Images are similar, but some differences detected.",
+      bg: "bg-yellow-900/30 border-yellow-700 text-yellow-300",
+    },
+    low: {
+      icon: <XCircle className="w-5 h-5 text-red-400" />,
+      text: "Images differ significantly — detailed comparison unreliable.",
+      bg: "bg-red-900/30 border-red-700 text-red-300",
+    },
+  };
+
   const probability = report?.stego_probability ?? 0;
   const probabilityColor =
     probability > 0.75
@@ -104,81 +132,94 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
         {/* Report */}
         {report && (
           <div className="space-y-8 animate-fadeIn">
-            {report.integrity_status === "failed" && (
-              <div className="p-4 bg-yellow-900/30 border border-yellow-700 text-yellow-300 rounded-lg">
-                Integrity check <strong>failed</strong> — detailed steganographic comparison triggered.
+            {/* 🧩 Podsumowanie podobieństwa */}
+            {similarityLevel && (
+              <div
+                className={`p-4 border rounded-lg flex items-center gap-3 ${levelConfig[similarityLevel].bg}`}
+              >
+                {levelConfig[similarityLevel].icon}
+                <span>{levelConfig[similarityLevel].text}</span>
               </div>
             )}
 
-            {/* Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
-              {[
-                { label: "MSE", value: report.mse },
-                { label: "SSIM", value: report.ssim },
-                { label: "LSB Diff", value: report.lsb_diff },
-                { label: "Residual Diff", value: report.residual_diff },
-              ].map((metric, i) => (
-                <div
-                  key={i}
-                  className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg"
-                >
-                  <p className="text-sm text-gray-400">{metric.label}</p>
-                  <p className="text-xl font-semibold text-teal-400">
-                    {formatValue(metric.value)}
-                  </p>
-                </div>
-              ))}
-
-              {/* Stego Probability */}
-              <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg col-span-full">
-                <span className="block text-sm text-gray-400 mb-1">
-                  Steganography Probability
-                </span>
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-3 rounded-full bg-gradient-to-r ${probabilityColor} transition-all duration-700`}
-                    style={{ width: `${probability * 100}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-sm text-gray-300">
-                  {(probability * 100).toFixed(2)}%
-                </p>
-              </div>
-            </div>
-
-            {/* Heatmaps */}
-            <div className="space-y-6">
-              {report.heatmap_diff && (
-                <HeatmapViewer
-                  title="Structural Difference Heatmap"
-                  imageData={report.heatmap_diff}
-                />
-              )}
-              {report.heatmap_residual && (
-                <HeatmapViewer
-                  title="Residual Difference Heatmap"
-                  imageData={report.heatmap_residual}
-                />
-              )}
-              {!report.heatmap_diff && !report.heatmap_residual && (
-                <p className="text-gray-500 text-center italic">
-                  No heatmaps generated for these images.
-                </p>
-              )}
-            </div>
-
-            {/* Notes */}
-            {report.notes?.length > 0 && (
-              <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
-                <h4 className="text-lg font-semibold text-teal-400 mb-2">
-                  Analysis Notes
-                </h4>
-                <ul className="list-disc list-inside text-gray-400 space-y-1">
-                  {report.notes.map((note, idx) => (
-                    <li key={idx}>{note}</li>
+            {/* Jeśli obrazy znacząco różne → kończymy */}
+            {similarityLevel === "low" ? (
+              <p className="text-gray-400 italic text-center">
+                Detailed steganographic comparison not performed due to major differences.
+              </p>
+            ) : (
+              <>
+                {/* Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
+                  {[
+                    { label: "MSE", value: report.mse },
+                    { label: "SSIM", value: report.ssim },
+                    { label: "LSB Diff", value: report.lsb_diff },
+                    { label: "Residual Diff", value: report.residual_diff },
+                  ].map((metric, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg"
+                    >
+                      <p className="text-sm text-gray-400">{metric.label}</p>
+                      <p className="text-xl font-semibold text-teal-400">
+                        {formatValue(metric.value)}
+                      </p>
+                    </div>
                   ))}
-                </ul>
-              </div>
+
+                  {/* Stego Probability */}
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg col-span-full">
+                    <span className="block text-sm text-gray-400 mb-1">
+                      Steganography Probability
+                    </span>
+                    <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-3 rounded-full bg-gradient-to-r ${probabilityColor} transition-all duration-700`}
+                        style={{ width: `${probability * 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-sm text-gray-300">
+                      {(probability * 100).toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Heatmaps */}
+                <div className="space-y-6">
+                  {report.heatmap_diff && (
+                    <HeatmapViewer
+                      title="Structural Difference Heatmap"
+                      imageData={report.heatmap_diff}
+                    />
+                  )}
+                  {report.heatmap_residual && (
+                    <HeatmapViewer
+                      title="Residual Difference Heatmap"
+                      imageData={report.heatmap_residual}
+                    />
+                  )}
+                  {!report.heatmap_diff && !report.heatmap_residual && (
+                    <p className="text-gray-500 text-center italic">
+                      No heatmaps generated for these images.
+                    </p>
+                  )}
+                </div>
+
+                {/* Notes */}
+                {report.notes?.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
+                    <h4 className="text-lg font-semibold text-teal-400 mb-2">
+                      Analysis Notes
+                    </h4>
+                    <ul className="list-disc list-inside text-gray-400 space-y-1">
+                      {report.notes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

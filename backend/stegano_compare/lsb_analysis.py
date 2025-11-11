@@ -1,24 +1,36 @@
 # stegano_compare/lsb_analysis.py
 import numpy as np
+from skimage.transform import resize
 
 def analyze_lsb(orig, susp):
     """
-    Works on uint8 data. orig/susp expected float [0,1] -> convert to uint8.
+    Analyze Least Significant Bits differences between two grayscale images.
+    Works reliably on float [0,1] input, internally converted to uint8.
     Returns:
       - lsb_diff_prop: proportion of differing LSB bits
-      - lsb_diff_map: 2D map of differing bits (0/1)
+      - lsb_diff_map: 2D binary map of differing bits (0/1)
     """
-    import numpy as np
-    o = (orig * 255).astype(np.uint8)
-    s = (susp * 255).astype(np.uint8)
+    # --- sanitize input ---
+    if orig is None or susp is None:
+        return 0.0, np.zeros((1, 1))
+    orig = np.nan_to_num(orig, nan=0.0, posinf=1.0, neginf=0.0)
+    susp = np.nan_to_num(susp, nan=0.0, posinf=1.0, neginf=0.0)
 
-    # align shapes if needed (simple resize)
+    # --- normalize + align shapes ---
+    o = np.clip(orig * 255, 0, 255).astype(np.uint8)
+    s = np.clip(susp * 255, 0, 255).astype(np.uint8)
+
     if o.shape != s.shape:
-        import skimage.transform as tf
-        s = (tf.resize(s, o.shape, anti_aliasing=True) * 255).astype(np.uint8)
+        s = resize(s, o.shape, anti_aliasing=False, preserve_range=True).astype(np.uint8)
 
+    # --- compute LSBs ---
     o_lsb = o & 1
     s_lsb = s & 1
+
     diff_map = np.abs(o_lsb.astype(np.int8) - s_lsb.astype(np.int8))
-    prop = float(diff_map.mean())
+    prop = float(np.mean(diff_map)) if diff_map.size > 0 else 0.0
+
+    if np.isnan(prop):
+        prop = 0.0
+
     return prop, diff_map

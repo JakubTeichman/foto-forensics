@@ -272,40 +272,62 @@ const Analysis: React.FC<AnalysisProps> = ({ setActiveTab }) => {
         </div>
       )}
 
-      {/* --- Sekcja wyboru pliku --- */}
-      {!selectedFile && (
-        <div
-          className="bg-gray-900 rounded-xl p-8 border border-teal-800 mt-6 mb-4"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file) handleFileChange({ target: { files: [file] } } as any);
-          }}
-        >
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-medium text-teal-400">Select Image File</h3>
-            <button onClick={() => setIsUploadOpen(false)} className="text-gray-400 hover:text-white">
-              <i className="fas fa-times"></i>
-            </button>
-          </div>
+      {/* --- Sekcja wyboru pliku (glassmorphism styl) --- */}
+{!selectedFile && (
+  <div
+    className="relative rounded-2xl p-8 border border-teal-400/30 shadow-[0_0_25px_rgba(0,255,180,0.15)]
+    bg-gradient-to-br from-gray-900/40 to-black/60 backdrop-blur-xl overflow-hidden mt-6 mb-4"
+    onDragOver={(e) => e.preventDefault()}
+    onDrop={(e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileChange({ target: { files: [file] } } as any);
+    }}
+  >
+    {/* Efekt świetlny w tle */}
+    <div className="absolute inset-0 bg-gradient-to-tl from-teal-500/10 to-transparent pointer-events-none" />
+    <div className="absolute -inset-[2px] bg-[radial-gradient(circle_at_20%_20%,rgba(0,255,200,0.12),transparent_60%)] pointer-events-none rounded-2xl" />
 
-          <div className="border-2 border-dashed border-teal-700 rounded-lg p-8 text-center hover:border-teal-500 transition-colors">
-            <input
-              type="file"
-              id="fileUpload"
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-            <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">
-              <i className="fas fa-file-image text-4xl text-teal-500 mb-4"></i>
-              <span className="text-lg mb-2 text-gray-200">Drag and drop or click to browse</span>
-              <span className="text-sm text-gray-400">Maximum file size: 50MB</span>
-            </label>
-          </div>
-        </div>
-      )}
+    {/* Nagłówek z przyciskiem zamykania */}
+    <div className="flex justify-between items-center mb-6 relative z-10">
+      <h3 className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-green-400 drop-shadow-lg tracking-wide">
+        Select Image File
+      </h3>
+      <button
+        onClick={() => setIsUploadOpen(false)}
+        className="text-gray-400 hover:text-white transition-colors"
+      >
+        <i className="fas fa-times text-lg"></i>
+      </button>
+    </div>
+
+    {/* Obszar drag & drop */}
+    <div
+      className="relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300
+      border-teal-600/40 hover:border-teal-400/80 bg-gray-900/30 hover:bg-gray-800/40
+      group"
+    >
+      <input
+        type="file"
+        id="fileUpload"
+        className="hidden"
+        accept="image/*"
+        onChange={handleFileChange}
+      />
+
+      <label
+        htmlFor="fileUpload"
+        className="cursor-pointer flex flex-col items-center w-full relative z-10"
+      >
+        <i className="fas fa-cloud-upload-alt text-6xl text-teal-400 mb-4 drop-shadow-[0_0_10px_rgba(0,255,200,0.3)] group-hover:scale-110 transition-transform"></i>
+        <span className="text-lg mb-2 text-teal-200">Drag & drop or click to upload</span>
+        <span className="text-sm text-gray-400">Supported formats: JPG, PNG, TIFF, RAW</span>
+        <span className="text-xs text-gray-500 mt-2">Maximum file size: 50MB</span>
+      </label>
+    </div>
+  </div>
+)}
+
 
 
       {/* --- Sekcja analizy --- */}

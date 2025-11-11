@@ -39,28 +39,35 @@ def analyze_images(original_path_or_file, suspicious_path_or_file, return_images
 
     report = {"status":"OK", "notes":[]}
 
-    # 1) differences
+        # 1) differences
     mse, ssim_val, diff_map = compute_differences(orig, susp)
-    report.update({"mse": float(mse), "ssim": float(ssim_val)})
+    report.update({
+        "mse": float(mse) if not np.isnan(mse) else 0.0,
+        "ssim": float(ssim_val) if not np.isnan(ssim_val) else 0.0
+    })
 
     # 2) residuals
     residual_diff_mean, residual_diff_map = analyze_residuals(orig, susp)
-    report["residual_diff_mean"] = residual_diff_mean
+    report["residual_diff_mean"] = float(residual_diff_mean) if not np.isnan(residual_diff_mean) else 0.0
 
     # 3) lsb
     lsb_prop, lsb_diff_map = analyze_lsb(orig, susp)
-    report["lsb_prop"] = lsb_prop
+    report["lsb_prop"] = float(lsb_prop) if lsb_prop is not None and not np.isnan(lsb_prop) else 0.0
 
     # 4) dct
     dct_score, dct_orig_stats, dct_susp_stats = compare_dct(orig, susp)
-    report["dct_score"] = dct_score
+    report["dct_score"] = float(dct_score) if not np.isnan(dct_score) else 0.0
     report["dct_orig_stats"] = dct_orig_stats
     report["dct_susp_stats"] = dct_susp_stats
 
     # 5) detection
-    score, method = detect_anomaly(mse, ssim_val, residual_diff_mean, lsb_prop, dct_score)
-    report["stego_score"] = float(score)
+    score, method = detect_anomaly(
+        report["mse"], report["ssim"], report["residual_diff_mean"],
+        report["lsb_prop"], report["dct_score"]
+    )
+    report["stego_score"] = float(score) if not np.isnan(score) else 0.0
     report["detector_method"] = method
+
 
     # 6) heatmaps (base64)
     heatmaps = {}

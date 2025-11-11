@@ -96,7 +96,6 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
           )}
 
           {/* CheckSumPanel */}
-          {/* @ts-ignore */}
           <CheckSumPanel files={[image1, image2].filter(Boolean) as File[]} />
 
           {/* 🔹 SteganoCompareSection (tylko jeśli integrity failed) */}

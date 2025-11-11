@@ -1,6 +1,5 @@
-// src/components/GpsMap.tsx
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -20,6 +19,15 @@ interface Props {
   lon: number;
 }
 
+// ✅ Komponent do odświeżenia widoku po zmianie współrzędnych
+const RecenterMap: React.FC<{ lat: number; lon: number }> = ({ lat, lon }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lon], 13);
+  }, [lat, lon, map]);
+  return null;
+};
+
 const GpsMap: React.FC<Props> = ({ lat, lon }) => {
   if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
     return (
@@ -30,11 +38,36 @@ const GpsMap: React.FC<Props> = ({ lat, lon }) => {
   }
 
   return (
-    <div className="w-full h-64 mt-4 rounded-lg overflow-hidden border border-gray-800 shadow-lg">
+    <div
+      className="
+        relative 
+        w-full 
+        h-72 sm:h-80 md:h-96 
+        mt-6
+        rounded-2xl 
+        overflow-hidden 
+        border border-teal-700/50 
+        bg-black/40 
+        backdrop-blur-md 
+        shadow-[0_0_25px_rgba(0,255,200,0.15)]
+        z-0
+      "
+    >
+      {/* ✅ Navbar zawsze nad mapą */}
+      <div className="absolute top-0 left-0 right-0 h-0 z-[5]" />
+
       <MapContainer
         center={[lat, lon]}
         zoom={13}
-        style={{ width: '100%', height: '100%' }}
+        zoomControl={true}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+        }}
+        className="rounded-2xl"
       >
         {/* 🌙 Dark mode map tiles */}
         <TileLayer
@@ -47,6 +80,8 @@ const GpsMap: React.FC<Props> = ({ lat, lon }) => {
             <strong>GPS Coordinates:</strong> {lat.toFixed(6)}, {lon.toFixed(6)}
           </Popup>
         </Marker>
+
+        <RecenterMap lat={lat} lon={lon} />
       </MapContainer>
     </div>
   );

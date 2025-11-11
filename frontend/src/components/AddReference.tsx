@@ -11,6 +11,11 @@ const AddReference: React.FC = () => {
 
   const manufacturers = [
     "Apple",
+    "Nikon",
+    "Canon",
+    "Sony",
+    "Fujifilm",
+    "Panasonic (Lumix)",
     "Samsung",
     "Xiaomi",
     "Huawei",
@@ -19,7 +24,7 @@ const AddReference: React.FC = () => {
     "Sony",
     "Oppo",
     "Vivo",
-    "Inne",
+    "Other",
   ];
 
   const handleSubmit = async () => {
@@ -60,7 +65,8 @@ const AddReference: React.FC = () => {
         setPreviewUrls([]);
       } else {
         const data = await response.json();
-        setError(data.message || "Something went wrong while adding reference.");
+        setError(data.error || "Something went wrong while adding reference.");
+
       }
     } catch (err) {
       setError("Server connection failed.");

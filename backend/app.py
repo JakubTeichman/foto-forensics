@@ -1,13 +1,13 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from flask_mail import Mail
-from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 import pymysql
-from config import Config
 
-# Importy blueprintów
+# 🔹 Import rozszerzeń (unikamy cyklicznych importów)
+from extensions import db, mail
+
+# 🔹 Importy blueprintów
 from routes.analyze_routes import analyze_bp
 from routes.compare_routes import compare_bp
 from routes.steganography_routes import steganography_bp
@@ -15,9 +15,6 @@ from routes.other_routes import others_bp
 from routes.noiseprint_routes import noiseprint_bp
 from routes.add_reference import add_reference_bp
 
-# ---- 🔧 Inicjalizacja ----
-db = SQLAlchemy()
-mail = Mail()
 
 def create_app():
     # 🌐 Inicjalizacja aplikacji
@@ -51,7 +48,7 @@ def create_app():
 
     # 🧱 Tworzenie tabel w bazie, jeśli nie istnieją
     with app.app_context():
-        from models.model import Image 
+        from models.model import Image  # Import wewnętrzny, żeby uniknąć cykli
         db.create_all()
 
     # 🧪 Endpoint testowy do sprawdzenia połączenia z bazą

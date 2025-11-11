@@ -10,7 +10,7 @@ from .lsb_analysis import analyze_lsb
 from .dct_analysis import compare_dct
 from .model_detector import detect_anomaly
 
-logging.basicConfig(level=logging.INFO, format="[SteganoCompare] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 def make_heatmap_from_map(diff_map, title="diff", cmap="hot"):
     """Return matplotlib figure for diff_map (0..1)"""

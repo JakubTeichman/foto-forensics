@@ -24,36 +24,35 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
     setError(null);
     setEmbeddingSim(null);
     try {
-      // === 1️⃣ Główne porównanie ===
       const formData = new FormData();
       formData.append("evidence", evidenceImage);
       referenceImages.forEach((file) => formData.append("references", file));
 
-      const response = await fetch(
-        `${process.env.REACT_APP_API_BASE}/noiseprint/compare`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/compare`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
+      // 🧠 Naprawione: upewniamy się, że base64 jest poprawnie zbudowane
       setEvidenceNoiseprint(
         data.evidence_noiseprint
           ? `data:image/png;base64,${data.evidence_noiseprint}`
           : null
       );
+
       setMeanNoiseprint(
         data.mean_reference_noiseprint
           ? `data:image/png;base64,${data.mean_reference_noiseprint}`
           : null
       );
+
       setStatsEvidence(data.stats_evidence ?? null);
       setStatsMean(data.stats_mean ?? null);
 
-      // === 2️⃣ Embedding similarity ===
+      // obliczenie embedding similarity
       if (referenceImages.length > 0) {
         const formDataEmb = new FormData();
         formDataEmb.append("evidence", evidenceImage);
@@ -92,7 +91,6 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
 
   return (
     <div className="mt-6 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/30 backdrop-blur-md relative">
-      {/* Loader */}
       {loading && (
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-2xl">
           <Loader2 className="h-10 w-10 text-green-400 animate-spin mb-3" />
@@ -106,21 +104,19 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
         Noiseprint Embedding Similarity
       </h3>
 
-      <div className="flex justify-left mb-8">
-        <button
-          onClick={handleNoiseprintCompare}
-          disabled={loading}
-          className={`${
-            loading
-              ? "bg-gray-700 cursor-not-allowed opacity-70"
-              : "bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40"
-          } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
-        >
-          {loading ? "Processing..." : "Generate Noiseprints"}
-        </button>
-      </div>
+      <button
+        onClick={handleNoiseprintCompare}
+        disabled={loading}
+        className={`${
+          loading
+            ? "bg-gray-700 cursor-not-allowed opacity-70"
+            : "bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40"
+        } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
+      >
+        {loading ? "Processing..." : "Generate Noiseprints"}
+      </button>
 
-      {error && <p className="text-red-400 text-center mb-4">{error}</p>}
+      {error && <p className="text-red-400 text-center mb-4 mt-4">{error}</p>}
 
       {!loading && (evidenceNoiseprint || meanNoiseprint) && (
         <div className="mt-10">
@@ -178,7 +174,6 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
             </div>
           </div>
 
-          {/* Wynik końcowy */}
           {embeddingSim !== null && (
             <div className="text-center mt-10 space-y-3">
               <p

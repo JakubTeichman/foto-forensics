@@ -239,3 +239,63 @@ def compare_embedding():
     except Exception as e:
         log_error(f"❌ Embedding comparison failed:\n{traceback.format_exc()}")
         return jsonify({'error': f'Embedding comparison failed: {str(e)}'}), 500
+    
+# ---- 🧬 ROUTE: Compare with reference noiseprint database (SQL) ----
+@noiseprint_bp.route('/compare_with_db', methods=['POST'])
+def compare_with_db():
+    """
+    Porównuje noiseprint obrazu dowodowego z bazą zapisanych noiseprintów referencyjnych (SQLAlchemy).
+    Wymaga endpointu add_reference z modelem DeviceReference.
+    """
+    try:
+        from extensions import db
+        from routes.add_reference import DeviceReference, deserialize_noiseprint
+
+        evidence_file = request.files.get('evidence')
+        if not evidence_file:
+            return jsonify({'error': 'No evidence image provided.'}), 400
+
+        # === 1️⃣ Wczytanie i przetworzenie próbki dowodowej ===
+        evidence_tensor = preprocess_image(Image.open(evidence_file.stream))
+        evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
+
+        # === 2️⃣ Wczytanie wszystkich referencji z bazy ===
+        refs = db.session.query(DeviceReference).all()
+        if not refs:
+            return jsonify({'error': 'No reference entries found in database.'}), 404
+
+        results = []
+        for ref in refs:
+            try:
+                ref_np = deserialize_noiseprint(ref.noiseprint)
+                ref_np = local_normalize(ref_np)
+
+                if ref_np.shape != evidence_np.shape:
+                    ref_np = cv2.resize(ref_np, (evidence_np.shape[1], evidence_np.shape[0]))
+
+                sim = cosine_similarity(evidence_np, ref_np)
+                results.append({
+                    "id": ref.id,
+                    "manufacturer": ref.manufacturer,
+                    "model": ref.model,
+                    "num_images": ref.num_images,
+                    "similarity": round(sim, 4)
+                })
+            except Exception:
+                log_error(f"⚠️ Failed to compare with reference ID={ref.id}\n{traceback.format_exc()}")
+
+        # === 3️⃣ Sortowanie i zwrot wyników ===
+        results_sorted = sorted(results, key=lambda x: x["similarity"], reverse=True)
+        best_match = results_sorted[0] if results_sorted else None
+
+        response = {
+            "total_references": len(refs),
+            "matches": results_sorted,
+            "best_match": best_match,
+        }
+        return jsonify(response)
+
+    except Exception:
+        log_error(f"❌ Compare_with_db failed:\n{traceback.format_exc()}")
+        return jsonify({'error': 'Internal error during database comparison.'}), 500
+

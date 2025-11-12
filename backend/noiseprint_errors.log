@@ -22,3 +22,67 @@
 [2025-11-10 22:21:23] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
 --------------------------------------------------------------------------------
 
+[2025-11-12 11:35:24] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:35:26] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:35:27] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:39] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:41] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:42] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:42] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:43] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+

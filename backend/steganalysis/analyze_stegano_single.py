@@ -1,9 +1,8 @@
 import os
 import cv2
-import json
 import numpy as np
-from PIL import Image
 import base64
+from PIL import Image
 from io import BytesIO
 
 # --- Classic methods ---
@@ -19,6 +18,9 @@ from steganalysis.statistical.sample_pair_analysis import analyze as sample_pair
 from steganalysis.statistical.pixel_pair_histogram import analyze as pixel_pair_diff_analyze
 from steganalysis.statistical.noise_residual_correlation import analyze_noise_residual as noise_residual_corr_analyze
 from steganalysis.statistical.markov_cooccurrence_analysis import markov_cooccurrence_analysis as markov_cooccurrence_analyze
+
+# --- Deep Learning / Ensemble ---
+from steganalysis.cnn.ensemble_detector import analyze as ensemble_cnn_analyze
 
 
 class AnalyzeSteganoSingle:
@@ -43,8 +45,14 @@ class AnalyzeSteganoSingle:
             "pixel_pair_diff": pixel_pair_diff_analyze,
             "noise_residual_corr": noise_residual_corr_analyze,
             "markov_cooccurrence": markov_cooccurrence_analyze,
+
+            # --- ML / Deep ensemble ---
+            "ensemble_C1": ensemble_cnn_analyze,
         }
 
+    # ======================================================
+    # 🔁 Pomocnicze metody (kodowanie / dekodowanie heatmap)
+    # ======================================================
     def _decode_heatmap(self, heatmap_base64):
         """Convert base64 heatmap to NumPy grayscale array."""
         try:
@@ -68,8 +76,13 @@ class AnalyzeSteganoSingle:
 
         return base64.b64encode(buf.getvalue()).decode("utf-8")
 
+    # ======================================================
+    # 🧠 Główna funkcja analizy
+    # ======================================================
     def analyze(self, image_path=None, pil_image=None):
-        """Run all registered steganalysis methods and aggregate results."""
+        """
+        Run all registered steganalysis methods and aggregate results.
+        """
         if pil_image is not None:
             pil_rgb = pil_image.convert("RGB")
         elif image_path:
@@ -88,17 +101,24 @@ class AnalyzeSteganoSingle:
 
         for name, fn in self.methods.items():
             try:
-                # Choose appropriate input
+                # Wybór formatu wejściowego w zależności od metody
                 if name == "lsb_histogram":
                     res = fn(pil_image=pil_rgb)
                 elif name == "high_freq_residual":
                     res = fn(np.array(pil_rgb))
+                elif name == "ensemble_C1":
+                    res = fn(pil_image=pil_rgb)  # CNN pracuje na kolorowym obrazie
                 else:
                     res = fn(pil_image=pil_gray)
 
-                # Normalize output format
+                # Normalizacja formatu wyników
                 if not isinstance(res, dict):
-                    res = {"method": name, "score": float(res), "detected": float(res) >= 0.5, "details": {}}
+                    res = {
+                        "method": name,
+                        "score": float(res),
+                        "detected": float(res) >= 0.5,
+                        "details": {},
+                    }
 
                 methods_results[name] = {
                     "method": res.get("method", name),
@@ -107,7 +127,7 @@ class AnalyzeSteganoSingle:
                     "details": res.get("details", {}),
                 }
 
-                # Collect heatmap if available
+                # Zbieranie map cieplnych, jeśli są dostępne
                 if "heatmap_base64" in res:
                     arr = self._decode_heatmap(res["heatmap_base64"])
                     if arr is not None:
@@ -121,14 +141,14 @@ class AnalyzeSteganoSingle:
                     "details": {"error": str(e)},
                 }
 
-        # --- Combine all heatmaps into a mean one ---
+        # 🔥 Uśrednienie heatmap (jeśli istnieją)
         if heatmaps:
             avg_heatmap = np.mean(heatmaps, axis=0)
             avg_heatmap_encoded = self._encode_heatmap(avg_heatmap)
         else:
             avg_heatmap_encoded = None
 
-        # --- Determine overall detection ---
+        # 🧩 Określenie wyniku końcowego
         detected_methods = [n for n, r in methods_results.items() if r.get("detected", False)]
         overall_detected = len(detected_methods) > 0
 

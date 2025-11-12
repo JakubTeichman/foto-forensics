@@ -9,8 +9,6 @@ interface SteganoReport {
   lsb_diff: number | null;
   residual_diff: number | null;
   stego_probability: number | null;
-  integrity_status?: string;
-  notes: string[];
   heatmap_diff?: string;
   heatmap_residual?: string;
 }
@@ -60,16 +58,15 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   const formatValue = (val: number | null) =>
     val !== null && !isNaN(val) ? val.toFixed(4) : "–";
 
-  // 🧠 ANALIZA PODOBIEŃSTWA
+  // 🧠 Poziom podobieństwa
   let similarityLevel: "high" | "medium" | "low" | null = null;
 
   if (report && report.mse !== null && report.ssim !== null) {
-  if (report.mse < 0.001 && report.ssim > 0.98) similarityLevel = "high";
-  else if (report.mse < 0.01 && report.ssim > 0.9) similarityLevel = "medium";
-  else similarityLevel = "low";
-}
+    if (report.mse < 0.001 && report.ssim > 0.98) similarityLevel = "high";
+    else if (report.mse < 0.01 && report.ssim > 0.9) similarityLevel = "medium";
+    else similarityLevel = "low";
+  }
 
-  // 🎨 Kolory dla poziomów podobieństwa
   const levelConfig = {
     high: {
       icon: <CheckCircle className="w-5 h-5 text-green-400" />,
@@ -122,17 +119,14 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
           )}
         </button>
 
-        {/* Error */}
         {error && (
           <div className="p-4 bg-red-900/40 border border-red-700 rounded-lg text-red-300">
             {error}
           </div>
         )}
 
-        {/* Report */}
         {report && (
           <div className="space-y-8 animate-fadeIn">
-            {/* 🧩 Podsumowanie podobieństwa */}
             {similarityLevel && (
               <div
                 className={`p-4 border rounded-lg flex items-center gap-3 ${levelConfig[similarityLevel].bg}`}
@@ -142,34 +136,46 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
               </div>
             )}
 
-            {/* Jeśli obrazy znacząco różne → kończymy */}
             {similarityLevel === "low" ? (
               <p className="text-gray-400 italic text-center">
                 Detailed steganographic comparison not performed due to major differences.
               </p>
             ) : (
               <>
-                {/* Metrics */}
+                {/* ✅ Mierniki w gridzie */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
-                  {[
-                    { label: "MSE", value: report.mse },
-                    { label: "SSIM", value: report.ssim },
-                    { label: "LSB Diff", value: report.lsb_diff },
-                    { label: "Residual Diff", value: report.residual_diff },
-                  ].map((metric, i) => (
-                    <div
-                      key={i}
-                      className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg"
-                    >
-                      <p className="text-sm text-gray-400">{metric.label}</p>
-                      <p className="text-xl font-semibold text-teal-400">
-                        {formatValue(metric.value)}
-                      </p>
-                    </div>
-                  ))}
+                  {/* Pierwszy rząd */}
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
+                    <p className="text-sm text-gray-400">MSE</p>
+                    <p className="text-xl font-semibold text-teal-400">
+                      {formatValue(report.mse)}
+                    </p>
+                  </div>
 
-                  {/* Stego Probability */}
-                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg col-span-full">
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
+                    <p className="text-sm text-gray-400">SSIM</p>
+                    <p className="text-xl font-semibold text-teal-400">
+                      {formatValue(report.ssim)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
+                    <p className="text-sm text-gray-400">LSB Diff</p>
+                    <p className="text-xl font-semibold text-teal-400">
+                      {formatValue(report.lsb_diff)}
+                    </p>
+                  </div>
+
+                  {/* Drugi rząd */}
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
+                    <p className="text-sm text-gray-400">Residual Diff</p>
+                    <p className="text-xl font-semibold text-teal-400">
+                      {formatValue(report.residual_diff)}
+                    </p>
+                  </div>
+
+                  {/* Pasek Probability – zajmuje 2 kolumny */}
+                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg lg:col-span-2">
                     <span className="block text-sm text-gray-400 mb-1">
                       Steganography Probability
                     </span>
@@ -185,7 +191,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
                   </div>
                 </div>
 
-                {/* Heatmaps */}
+                {/* Heatmapy */}
                 <div className="space-y-6">
                   {report.heatmap_diff && (
                     <HeatmapViewer
@@ -205,20 +211,6 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
                     </p>
                   )}
                 </div>
-
-                {/* Notes */}
-                {report.notes?.length > 0 && (
-                  <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
-                    <h4 className="text-lg font-semibold text-teal-400 mb-2">
-                      Analysis Notes
-                    </h4>
-                    <ul className="list-disc list-inside text-gray-400 space-y-1">
-                      {report.notes.map((note, idx) => (
-                        <li key={idx}>{note}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </>
             )}
           </div>

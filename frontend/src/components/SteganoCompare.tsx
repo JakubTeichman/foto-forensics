@@ -95,18 +95,20 @@ const SteganoCompare: React.FC<SteganoCompareProps> = ({ setActiveTab }) => {
             </div>
           )}
 
+          {/* 🔹 SteganoCompareSection (tylko jeśli integrity failed) */}
+            {integrityResult === 'failed' && (
+              <div className="mt-8">
+                <SteganoCompareSection
+                  originalFile={image1}
+                  suspiciousFile={image2}
+                />
+              </div>
+            )}
+            
           {/* CheckSumPanel */}
           <CheckSumPanel files={[image1, image2].filter(Boolean) as File[]} />
 
-          {/* 🔹 SteganoCompareSection (tylko jeśli integrity failed) */}
-          {integrityResult === 'failed' && (
-            <div className="mt-8">
-              <SteganoCompareSection
-                originalFile={image1}
-                suspiciousFile={image2}
-              />
-            </div>
-          )}
+          
         </div>
       )}
     </div>

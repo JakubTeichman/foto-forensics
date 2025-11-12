@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
 import ImageUploader from "./ImageUploader";
 
 const AddReference: React.FC = () => {
@@ -8,6 +9,7 @@ const AddReference: React.FC = () => {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // 🆕 stan ładowania
 
   const manufacturers = [
     "Apple",
@@ -30,19 +32,25 @@ const AddReference: React.FC = () => {
   const handleSubmit = async () => {
     setError(null);
     setSuccess(null);
+    setLoading(true); // 🆕 rozpoczęcie ładowania
 
     if (!manufacturer) {
       setError("Please select a manufacturer.");
+      setLoading(false);
       return;
     }
 
     if (!/^[\w\s-]{3,}$/.test(model)) {
-      setError("Model name must be at least 3 characters and contain only letters, numbers, spaces, or dashes.");
+      setError(
+        "Model name must be at least 3 characters and contain only letters, numbers, spaces, or dashes."
+      );
+      setLoading(false);
       return;
     }
 
     if (images.length < 3) {
       setError("Please upload at least 3 reference images.");
+      setLoading(false);
       return;
     }
 
@@ -66,10 +74,11 @@ const AddReference: React.FC = () => {
       } else {
         const data = await response.json();
         setError(data.error || "Something went wrong while adding reference.");
-
       }
     } catch (err) {
       setError("Server connection failed.");
+    } finally {
+      setLoading(false); // 🆕 zakończenie ładowania
     }
   };
 
@@ -126,13 +135,25 @@ const AddReference: React.FC = () => {
       {error && <p className="mt-4 text-red-500 font-medium">{error}</p>}
       {success && <p className="mt-4 text-green-400 font-medium">{success}</p>}
 
-      {/* Submit button */}
-      <button
-        onClick={handleSubmit}
-        className="mt-6 bg-gradient-to-r from-teal-500 to-green-500 text-black font-semibold px-6 py-2 rounded-lg hover:from-teal-400 hover:to-green-400 transition-all"
-      >
-        Submit Reference
-      </button>
+      {/* Submit button + loader */}
+      <div className="mt-6 flex justify-center">
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className={`flex items-center gap-2 bg-gradient-to-r from-teal-500 to-green-500 text-black font-semibold px-6 py-2 rounded-lg hover:from-teal-400 hover:to-green-400 transition-all ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Submitting...</span>
+            </>
+          ) : (
+            "Submit Reference"
+          )}
+        </button>
+      </div>
     </div>
   );
 };

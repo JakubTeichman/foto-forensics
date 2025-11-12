@@ -8,22 +8,39 @@ import torch
 from extensions import db
 from flask_sqlalchemy import SQLAlchemy
 from noiseprint.model import FullConvNet as NoiseprintModel
+from sqlalchemy.dialects.mysql import LONGBLOB
+from sqlalchemy import text
 
 add_reference_bp = Blueprint("add_reference", __name__)
 
 # ==========================================
 # 🧱 Model bazy danych
 # ==========================================
-# 🧱 Model bazy danych
 class DeviceReference(db.Model):
     __tablename__ = "device_references"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     manufacturer = db.Column(db.String(100), nullable=False)
     model = db.Column(db.String(100), nullable=False)
-    # LONGBLOB zamiast domyślnego BLOB (~64KB)
-    noiseprint = db.Column(db.LargeBinary(length=(4 * 1024 * 1024 * 1024)), nullable=False)
+    noiseprint = db.Column(LONGBLOB, nullable=False)
     num_images = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.TIMESTAMP, server_default=db.text("CURRENT_TIMESTAMP"))
+
+
+# ==========================================
+# 🧩 Wymuszenie typu LONGBLOB (ALTER TABLE)
+# ==========================================
+@add_reference_bp.before_app_request
+def enforce_longblob():
+    """Wymusza typ LONGBLOB w kolumnie 'noiseprint' (jeśli SQLAlchemy stworzyło BLOB)."""
+    try:
+        db.session.execute(text("""
+            ALTER TABLE device_references 
+            MODIFY COLUMN noiseprint LONGBLOB NOT NULL;
+        """))
+        db.session.commit()
+        print("✅ Kolumna 'noiseprint' została ustawiona na LONGBLOB.")
+    except Exception as e:
+        print(f"⚠️ Nie udało się zmienić kolumny na LONGBLOB (prawdopodobnie już istnieje): {e}")
 
 
 # ==========================================

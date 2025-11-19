@@ -60,13 +60,27 @@ def analyze_nua():
 
     with torch.no_grad():
         output = model(tensor)
-        prob = torch.softmax(output, dim=1)[0, 1].item()  # prawdopodobieństwo klasy 1 (np. 'nua_paired')
+        prob = torch.softmax(output, dim=1)[0, 1].item()
+
+        prob = max(0.0, min(1.0, prob))
+
         detected = prob > 0.55
+        
+    k = 1.5
+    threshold = 0.55
+
+    if prob < threshold:
+        confidence = (threshold - prob) / threshold * 100.0
+    else:
+        confidence = (prob - threshold) / (1 - threshold) * 100.0
+
+    confidence = round(confidence*k, 2)
 
     return jsonify({
         "detected": bool(detected),
-        "confidence": round(prob, 4)
+        "confidence": confidence
     })
+
 
 # ==============================
 # 🧾 Endpoint: analiza metadanych

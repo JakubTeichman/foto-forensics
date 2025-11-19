@@ -134,7 +134,7 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
               </span>
             </p>
             <p className="text-sm text-gray-400 mt-1">
-              Confidence: {(mainResult.confidence * 100).toFixed(2)}%
+              Confidence: {(mainResult.confidence).toFixed(2)}%
             </p>
           </div>
 

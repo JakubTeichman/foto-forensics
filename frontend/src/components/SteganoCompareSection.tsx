@@ -4,18 +4,18 @@ import { Activity, Loader2, AlertTriangle, CheckCircle, XCircle } from "lucide-r
 import HeatmapViewer from "./HeatmapViewer";
 
 interface SteganoReport {
-  status: string;
+  status?: string;
   mse: number | null;
   ssim: number | null;
   lsb_diff: number | null;
   residual_diff: number | null;
   stego_probability: number | null;
-  heatmap_diff?: string;
-  heatmap_residual?: string;
-  score?: number;
-  threshold?: number;
-  stego_detected?: boolean;
-  heatmap_siamese?: string;
+  heatmap_diff?: string | null;
+  heatmap_residual?: string | null;
+  score?: number | null;
+  threshold?: number | null;
+  stego_detected?: boolean | null;
+  heatmap_siamese?: string | null;
 }
 
 interface SteganoCompareSectionProps {
@@ -27,17 +27,123 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   originalFile,
   suspiciousFile,
 }) => {
-  const [report, setReport] = useState<SteganoReport | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [reportAlgo, setReportAlgo] = useState<SteganoReport | null>(null);
+  const [reportSiamese, setReportSiamese] = useState<SteganoReport | null>(null);
+  const [loadingAlgo, setLoadingAlgo] = useState(false);
   const [loadingSiamese, setLoadingSiamese] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // poprawia base64 (dodaje prefix jeśli brak)
+  // ensure base64 has data URI prefix
   const ensureDataUri = (s?: string | null) => {
     if (!s) return null;
     if (s.startsWith("data:image/")) return s;
-    // spróbuj PNG, jeśli nie zadziała backend może wysłać jpg — frontend img element poradzi sobie
     return `data:image/png;base64,${s}`;
+  };
+
+  const pickNumber = (src: any, keys: string[]): number | null => {
+    for (const k of keys) {
+      if (src && Object.prototype.hasOwnProperty.call(src, k)) {
+        const v = src[k];
+        if (v === null || v === undefined) return null;
+        const num = Number(v);
+        if (!Number.isFinite(num)) return null;
+        return num;
+      }
+    }
+    return null;
+  };
+
+  const mapBackendToReport = (data: any): SteganoReport => {
+    console.debug("raw stegano response:", data);
+
+    const heatmapCandidates = (obj: any, keys: string[]) => {
+      for (const k of keys) {
+        if (!obj) continue;
+        if (obj[k]) return obj[k];
+      }
+      return null;
+    };
+
+    const heatTop = (d: any) =>
+      heatmapCandidates(d, [
+        "heatmap_diff",
+        "heatmap_residual",
+        "diff_map",
+        "residual_diff_map",
+        "lsb_diff_map",
+      ]);
+
+    const heatmapDiffRaw =
+      heatTop(data) && typeof heatTop(data) === "string" ? heatTop(data) : null;
+
+    const hb = data?.heatmaps_base64 ?? data?.heatmaps ?? null;
+    const diffFromHb =
+      hb && (hb.diff_map || hb.diff || hb.heatmap_diff || hb.structural || hb["diff_map"])
+        ? hb.diff_map ?? hb.diff ?? hb.heatmap_diff ?? hb.structural ?? hb["diff_map"]
+        : null;
+    const residualFromHb =
+      hb && (hb.residual_diff_map || hb.residual || hb.heatmap_residual)
+        ? hb.residual_diff_map ?? hb.residual ?? hb.heatmap_residual
+        : null;
+
+    const mse = pickNumber(data, ["mse", "MSE"]);
+    const ssim = pickNumber(data, ["ssim", "SSIM", "ssim_val"]);
+    const lsb =
+      pickNumber(data, ["lsb_diff", "lsb_prop", "lsb", "lsb_propensity", "lsb_probability"]) ??
+      null;
+    const residual =
+      pickNumber(data, [
+        "residual_diff",
+        "residual_diff_mean",
+        "residual",
+        "resid_diff",
+        "residual_mean",
+      ]) ?? null;
+
+    const prob =
+      pickNumber(data, [
+        "stego_probability",
+        "stego_score",
+        "prob",
+        "probability",
+        "probability_stego",
+        "score",
+      ]) ?? null;
+
+    const stegoProbability =
+      pickNumber(data, ["stego_probability", "stego_score", "prob", "probability"]) ?? prob ?? null;
+
+    const heatmap_diff_raw =
+      (typeof data?.heatmap_diff === "string" && data.heatmap_diff) ||
+      (typeof data?.diff_map === "string" && data.diff_map) ||
+      diffFromHb ||
+      null;
+
+    const heatmap_residual_raw =
+      (typeof data?.heatmap_residual === "string" && data.heatmap_residual) ||
+      (typeof data?.residual_diff_map === "string" && data.residual_diff_map) ||
+      residualFromHb ||
+      null;
+
+    const mapped: SteganoReport = {
+      mse: mse,
+      ssim: ssim,
+      lsb_diff: lsb,
+      residual_diff: residual,
+      stego_probability: stegoProbability,
+      heatmap_diff: ensureDataUri(heatmap_diff_raw),
+      heatmap_residual: ensureDataUri(heatmap_residual_raw),
+      score: pickNumber(data, ["score"]) ?? null,
+      threshold: pickNumber(data, ["threshold"]) ?? null,
+      stego_detected:
+        data && (data.stego_detected === true || data.stego_detected === false)
+          ? Boolean(data.stego_detected)
+          : null,
+      heatmap_siamese: ensureDataUri(data?.heatmap_siamese ?? null),
+    };
+
+    console.debug("mapped stegano report:", mapped);
+    return mapped;
   };
 
   const handleAnalyze = async () => {
@@ -46,9 +152,8 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
       return;
     }
 
-    setLoading(true);
+    setLoadingAlgo(true);
     setError(null);
-    setReport(null);
 
     const formData = new FormData();
     formData.append("original", originalFile);
@@ -64,16 +169,13 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
         throw new Error(txt || "Server error during analysis.");
       }
       const data = await res.json();
-
-      // napraw base64 heatmap (może przyjść bez prefixu)
-      data.heatmap_diff = ensureDataUri(data.heatmap_diff);
-      data.heatmap_residual = ensureDataUri(data.heatmap_residual);
-
-      setReport(data);
+      const mapped = mapBackendToReport(data);
+      setReportAlgo(mapped);
     } catch (err: any) {
-      setError(err.message || "Unknown error");
+      console.error("stegano/compare error:", err);
+      setError(err?.message || "Unknown error");
     } finally {
-      setLoading(false);
+      setLoadingAlgo(false);
     }
   };
 
@@ -100,47 +202,18 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
         throw new Error(txt || "Server error during Siamese analysis.");
       }
       const data = await res.json();
-      data.heatmap_siamese = ensureDataUri(data.heatmap_siamese);
-
-      // scalamy wynik (zachowujemy poprzednie pola)
-      setReport((prev) => ({ ...(prev || {}), ...(data || {}) }));
+      const mappedSiamese = mapBackendToReport(data);
+      setReportSiamese(mappedSiamese);
     } catch (err: any) {
-      setError(err.message || "Unknown error");
+      console.error("stegano/siamese error:", err);
+      setError(err?.message || "Unknown error (siamese)");
     } finally {
       setLoadingSiamese(false);
     }
   };
 
-  const formatValue = (val: number | null) =>
-    val !== null && !isNaN(val) ? val.toFixed(4) : "–";
+  const formatValue = (val: number | null) => (val !== null && !isNaN(val) ? val.toFixed(4) : "–");
 
-  // similarityLevel decyduje czy pokazać siamese button
-  let similarityLevel: "high" | "medium" | "low" | null = null;
-  if (report && report.mse !== null && report.ssim !== null) {
-    if (report.mse < 0.001 && report.ssim > 0.98) similarityLevel = "high";
-    else if (report.mse < 0.01 && report.ssim > 0.9) similarityLevel = "medium";
-    else similarityLevel = "low";
-  }
-
-  const levelConfig = {
-    high: {
-      icon: <CheckCircle className="w-5 h-5 text-green-400" />,
-      text: "Images are nearly identical.",
-      bg: "bg-green-900/30 border-green-700 text-green-300",
-    },
-    medium: {
-      icon: <AlertTriangle className="w-5 h-5 text-yellow-400" />,
-      text: "Images are similar, but some differences detected.",
-      bg: "bg-yellow-900/30 border-yellow-700 text-yellow-300",
-    },
-    low: {
-      icon: <XCircle className="w-5 h-5 text-red-400" />,
-      text: "Images differ significantly — detailed comparison unreliable.",
-      bg: "bg-red-900/30 border-red-700 text-red-300",
-    },
-  };
-
-  // probability bar color helper
   const probColor = (p: number) =>
     p > 0.75 ? "from-red-500 to-red-700" : p > 0.5 ? "from-yellow-500 to-yellow-700" : "from-teal-500 to-green-500";
 
@@ -152,15 +225,17 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
       </h3>
 
       <div className="space-y-6">
-        {/* Primary analysis button */}
+        {/* Primary analyze */}
         <button
           onClick={handleAnalyze}
-          disabled={loading}
+          disabled={loadingAlgo}
           className={`w-full py-3 text-lg font-semibold rounded-xl transition duration-300 ${
-            loading ? "bg-teal-800/50 cursor-not-allowed text-gray-300" : "bg-gradient-to-r from-teal-500 to-green-500 hover:opacity-90 text-white shadow-lg shadow-green-900/20"
+            loadingAlgo
+              ? "bg-teal-800/50 cursor-not-allowed text-gray-300"
+              : "bg-gradient-to-r from-teal-500 to-green-500 hover:opacity-90 text-white shadow-lg shadow-green-900/20"
           }`}
         >
-          {loading ? (
+          {loadingAlgo ? (
             <span className="flex items-center justify-center gap-2">
               <Loader2 className="animate-spin w-5 h-5" /> Analyzing...
             </span>
@@ -171,146 +246,131 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
 
         {error && <div className="p-4 bg-red-900/40 border border-red-700 rounded-lg text-red-300">{error}</div>}
 
-        {/* Show primary results */}
-        {report && (
+        {/* Algorithmic results */}
+        {reportAlgo && (
           <div className="space-y-6">
-            {similarityLevel && (
-              <div className={`p-3 border rounded-lg flex items-center gap-3 ${levelConfig[similarityLevel].bg}`}>
-                {levelConfig[similarityLevel].icon}
-                <div className="text-sm">
-                  <div className="font-medium">{levelConfig[similarityLevel].text}</div>
-                  <div className="text-xs text-gray-400">MSE: {formatValue(report.mse)} · SSIM: {formatValue(report.ssim)}</div>
-                </div>
-              </div>
-            )}
-
-            {/* If too different — show message and stop (no siamese) */}
-            {similarityLevel === "low" && (
-              <div className="p-3 bg-gray-800/40 border border-gray-700 rounded-lg text-yellow-200">
-                Images differ substantially — further Siamese analysis is disabled.
-              </div>
-            )}
-
-            {/* Metrics grid */}
+            <h4 className="text-md font-semibold text-teal-300 mb-2">Algorithmic Analysis</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">MSE</p>
-                <p className="text-xl font-semibold text-teal-400">{formatValue(report.mse)}</p>
+                <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.mse)}</p>
               </div>
-
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">SSIM</p>
-                <p className="text-xl font-semibold text-teal-400">{formatValue(report.ssim)}</p>
+                <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.ssim)}</p>
               </div>
-
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">LSB Diff</p>
-                <p className="text-xl font-semibold text-teal-400">{formatValue(report.lsb_diff)}</p>
+                <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.lsb_diff)}</p>
               </div>
-
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">Residual Diff</p>
-                <p className="text-xl font-semibold text-teal-400">{formatValue(report.residual_diff)}</p>
+                <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.residual_diff)}</p>
               </div>
-
-              {/* Probability bar (original method) */}
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg lg:col-span-2">
                 <p className="text-sm text-gray-400">Steganography Probability</p>
                 <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden mt-2">
                   <div
-                    className={`h-full rounded-full bg-gradient-to-r ${probColor(report.stego_probability ?? 0)} transition-all duration-700`}
-                    style={{ width: `${Math.min(100, Math.max(0, (report.stego_probability ?? 0) * 100))}%` }}
+                    className={`h-full rounded-full bg-gradient-to-r ${probColor(
+                      reportAlgo.stego_probability ?? 0
+                    )} transition-all duration-700`}
+                    style={{ width: `${Math.min(100, Math.max(0, (reportAlgo.stego_probability ?? 0) * 100))}%` }}
                   />
                 </div>
-                <p className="mt-1 text-sm text-gray-300">{((report.stego_probability ?? 0) * 100).toFixed(2)}%</p>
+                <p className="mt-1 text-sm text-gray-300">
+                  {((reportAlgo.stego_probability ?? 0) * 100).toFixed(2)}%
+                </p>
               </div>
             </div>
 
-            {/* Heatmaps (structural / residual) */}
-            <div className="space-y-4">
-              {report.heatmap_diff ? (
-                <HeatmapViewer title="Structural Difference Heatmap" imageData={report.heatmap_diff} />
-              ) : (
-                <div className="text-xs text-gray-500 italic">No structural heatmap.</div>
-              )}
+            {/* Heatmaps (side by side) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {reportAlgo.heatmap_diff ? (
+                  <HeatmapViewer title="Structural Difference Heatmap" imageData={reportAlgo.heatmap_diff} />
+                ) : (
+                  <div className="text-xs text-gray-500 italic">No structural heatmap.</div>
+                )}
 
-              {report.heatmap_residual ? (
-                <HeatmapViewer title="Residual Difference Heatmap" imageData={report.heatmap_residual} />
-              ) : (
-                <div className="text-xs text-gray-500 italic">No residual heatmap.</div>
-              )}
+                {reportAlgo.heatmap_residual ? (
+                  <HeatmapViewer title="Residual Difference Heatmap" imageData={reportAlgo.heatmap_residual} />
+                ) : (
+                  <div className="text-xs text-gray-500 italic">No residual heatmap.</div>
+                )}
+              </div>
+
+          </div>
+        )}
+
+        {/* Siamese section */}
+        {reportSiamese && (
+          <div className="pt-6 border-t border-gray-800">
+            <h4 className="text-md font-semibold text-teal-300 mb-3">Siamese Network Analysis</h4>
+            <div className="space-y-3">
+              <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Siamese score</p>
+                    <p className="text-2xl font-bold text-teal-300">
+                      {((reportSiamese.score ?? 0) * 100).toFixed(2)}%
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Decision</p>
+                    <p className={`font-semibold ${reportSiamese.stego_detected ? "text-red-400" : "text-green-400"}`}>
+                      {reportSiamese.stego_detected ? "Possible Stego" : "Likely Clean"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden border border-gray-700">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        (reportSiamese.score ?? 0) > 0.75
+                          ? "bg-gradient-to-r from-red-500 to-red-700"
+                          : (reportSiamese.score ?? 0) > 0.5
+                          ? "bg-gradient-to-r from-yellow-500 to-yellow-700"
+                          : "bg-gradient-to-r from-green-500 to-teal-600"
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(0, (reportSiamese.score ?? 0) * 100))}%` }}
+                    />
+                  </div>
+                  {reportSiamese.threshold !== null && (
+                    <p className="text-xs text-gray-400 italic mt-1">Threshold: {(reportSiamese.threshold ?? 0).toFixed(4)}</p>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  {reportSiamese.heatmap_siamese ? (
+                    <HeatmapViewer title="Siamese Activation Heatmap" imageData={reportSiamese.heatmap_siamese} />
+                  ) : (
+                    <div className="text-xs text-gray-500 italic">No Siamese heatmap available.</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* SIAMESE section — pokazujemy dopiero PO pierwszej analizie i tylko gdy similarity !== low */}
-        {report && similarityLevel !== "low" && (
-          <div className="pt-6 border-t border-gray-800">
-            <h4 className="text-md font-semibold text-teal-300 mb-3">Siamese Network Analysis</h4>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleSiameseAnalyze}
-                disabled={loadingSiamese}
-                className={`w-full py-3 text-md font-semibold rounded-xl transition duration-300 ${
-                  loadingSiamese
-                    ? "bg-gray-700 cursor-not-allowed text-gray-400"
-                    : "bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 text-white shadow-lg"
-                }`}
-              >
-
-                {loadingSiamese ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="animate-spin w-5 h-5" /> Running Siamese Analysis...
-                  </span>
-                ) : (
-                  "Analyze with Siamese Network"
-                )}
-              </button>
-
-              {/* Siamese results panel (confidence + heatmap + threshold) */}
-              {report.score !== undefined && (
-                <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-400">Siamese score</p>
-                      <p className="text-2xl font-bold text-teal-300">{(report.score * 100).toFixed(2)}%</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">Decision</p>
-                      <p className={`font-semibold ${report.stego_detected ? "text-red-400" : "text-green-400"}`}>
-                        {report.stego_detected ? "Possible Stego" : "Likely Clean"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* confidence bar (siamese) */}
-                  <div className="mt-3">
-                    <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden border border-gray-700">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          (report.score ?? 0) > 0.75 ? "bg-gradient-to-r from-red-500 to-red-700" : (report.score ?? 0) > 0.5 ? "bg-gradient-to-r from-yellow-500 to-yellow-700" : "bg-gradient-to-r from-green-500 to-teal-600"
-                        }`}
-                        style={{ width: `${Math.min(100, Math.max(0, (report.score ?? 0) * 100))}%` }}
-                      />
-                    </div>
-                    {report.threshold !== undefined && (
-                      <p className="text-xs text-gray-400 italic mt-1">Threshold: {(report.threshold).toFixed(4)}</p>
-                    )}
-                  </div>
-
-                  {/* Siamese heatmap */}
-                  <div className="mt-4">
-                    {report.heatmap_siamese ? (
-                      <HeatmapViewer title="Siamese Activation Heatmap" imageData={report.heatmap_siamese} />
-                    ) : (
-                      <div className="text-xs text-gray-500 italic">No Siamese heatmap available.</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Run Siamese button */}
+        {reportAlgo && (
+          <button
+            onClick={handleSiameseAnalyze}
+            disabled={loadingSiamese}
+            className={`w-full py-3 text-md font-semibold rounded-xl transition duration-300 ${
+              loadingSiamese
+                ? "bg-gray-700 cursor-not-allowed text-gray-400"
+                : "bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 text-white shadow-lg"
+            }`}
+          >
+            {loadingSiamese ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin w-5 h-5" /> Running Siamese Analysis...
+              </span>
+            ) : (
+              "Analyze with Siamese Network"
+            )}
+          </button>
         )}
       </div>
     </div>

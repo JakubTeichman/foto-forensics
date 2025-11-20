@@ -41,7 +41,14 @@ def detect_anomaly(mse, ssim_val, residual_diff_mean, lsb_prop, dct_score):
 
     # fallback heuristic (normalized)
     # weights tuned roughly; you can re-train model later
-    w = np.array([0.25, 0.2, 0.25, 0.2, 0.1])
+    w = np.array([
+    0.05,  # mse (minimalne znaczenie)
+    0.05,  # ssim (też minimalne)
+    0.35,  # residual diff (bardzo ważne)
+    0.45,  # lsb diff (najważniejsze)
+    0.10   # dct score (pomocnicze)
+])
+
     norm_feats = feats.flatten()
     # clamp some features to reasonable ranges
     norm_feats[0] = min(norm_feats[0], 1.0)   # mse (if images normalized)

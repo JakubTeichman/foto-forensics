@@ -8,6 +8,14 @@ from scipy import fftpack
 
 EPS = 1e-8
 
+# Patch-BM3D tuning
+BIG_DIM_THRESHOLD = 3000   # jeśli max(w,h) > 3000 -> użyj patch-wise BM3D
+PATCH_SIZE = 512           # rozmiar patcha (zmień jeśli chcesz)
+OVERLAP = 0.5              # overlap w ułamku (np. 0.5 = 50%)
+# zabezpieczenie sigma dla BM3D
+MIN_SIGMA = 1e-4
+MAX_SIGMA = 0.5
+
 
 def load_image_as_gray(img):
     img = img_as_float(img)
@@ -16,18 +24,148 @@ def load_image_as_gray(img):
     return img
 
 
+def _hann2d(sz):
+    """2D Hann window rozmiaru sz (h, w)"""
+    h, w = sz
+    wy = np.hanning(h) if h > 1 else np.array([1.0])
+    wx = np.hanning(w) if w > 1 else np.array([1.0])
+    return np.outer(wy, wx)
+
+
+def _patch_indices(length, patch_size, step):
+    """Generator par (start, end) dla osi, zapewniający pokrycie końca obrazu."""
+    i = 0
+    while True:
+        end = i + patch_size
+        if end >= length:
+            # ostatni patch tak, aby sięgał końca (mieć patch_size jeśli to możliwe)
+            start = max(0, length - patch_size)
+            yield start, length
+            break
+        else:
+            yield i, end
+            i += step
+
+
+def _denoise_patch_bm3d(patch, sigma_est):
+    """
+    Denoise pojedynczy patch przy użyciu BM3D.
+    Przyjmuje patch w skali 0..1, zwraca denoised patch w tym samym zakresie/dtype.
+    """
+    try:
+        # BM3D robi najlepiej na float64 contig
+        p_in = np.ascontiguousarray(patch.astype(np.float64))
+        den = bm3d(p_in, sigma_psd=float(sigma_est))
+        return np.asarray(den, dtype=patch.dtype)
+    except Exception as e:
+        # BM3D może się wysypać — fallback do Wienera
+        print("BM3D patch failed, fallback wiener. Exception:", repr(e))
+        try:
+            return wiener(patch, mysize=(3, 3))
+        except Exception as e2:
+            print("Wiener fallback failed:", repr(e2))
+            return patch  # w ostateczności zwróć oryginał (residual=0)
+
+
+def extract_noise_residual_patchwise(img, patch_size=PATCH_SIZE, overlap=OVERLAP):
+    """
+    Patch-wise extraction: dzieli obraz na patchy z overlap, odszumia BM3D per-patch,
+    agreguje residuale przez overlap-add z oknem Hann, a na końcu normalizuje
+    (zero-mean, unit-std) tak jak w pierwotnej funkcji.
+    """
+    gray = load_image_as_gray(img)
+    H, W = gray.shape
+
+    # parametry patchów
+    overlap_pixels = int(round(patch_size * overlap))
+    step = patch_size - overlap_pixels
+    if step < 1:
+        step = 1
+
+    # pre-allocate sumy
+    residual_sum = np.zeros_like(gray, dtype=np.float64)
+    weight_sum = np.zeros_like(gray, dtype=np.float64)
+
+    # okno Hann (stałe rozmiary patchów, ale dla brzegów patch może być mniejszy)
+    # będziemy tworzyć okno dynamicznie dla każdego patcha w razie potrzeby
+    sigma_global_est = max(MIN_SIGMA, min(MAX_SIGMA, float(np.std(gray) if np.std(gray) > 0 else MIN_SIGMA)))
+
+    for ys in _patch_indices(H, patch_size, step):
+        y0, y1 = ys
+        for xs in _patch_indices(W, patch_size, step):
+            x0, x1 = xs
+
+            patch = gray[y0:y1, x0:x1]
+            ph, pw = patch.shape
+
+            # robustna estymacja sigma dla patcha (może się różnić lokalnie)
+            sigma_patch = float(np.std(patch))
+            if not np.isfinite(sigma_patch) or sigma_patch <= 0:
+                sigma_patch = sigma_global_est
+            sigma_patch = float(np.clip(sigma_patch, MIN_SIGMA, MAX_SIGMA))
+
+            # denoise patch (BM3D)
+            den = _denoise_patch_bm3d(patch, sigma_patch)
+
+            # residual patch (un-normalized for now)
+            resid_patch = patch - den
+            resid_patch = resid_patch.astype(np.float64)
+
+            # okno Hann dopasowane do aktualnego rozmiaru patcha
+            win = _hann2d((ph, pw))
+
+            # overlap-add z wagą
+            residual_sum[y0:y1, x0:x1] += resid_patch * win
+            weight_sum[y0:y1, x0:x1] += win
+
+    # złożenie finalne
+    assembled = residual_sum / (weight_sum + EPS)
+
+    # normalizacja globalna (tak jak w oryginalnym kodzie)
+    assembled = assembled - np.mean(assembled)
+    std = assembled.std() + EPS
+    return (assembled / std).astype(np.float32)
+
+
 def extract_noise_residual(img, method='bm3d'):
-    """Return residual = image - denoised(image)"""
+    """Return residual = image - denoised(image)
+       Dla BM3D: używa patch-wise jeśli obraz jest duży (big dim threshold).
+    """
     gray = load_image_as_gray(img)
 
+    # Czy użyć patch-wise BM3D?
     if method == 'bm3d':
+        H, W = gray.shape
+        if max(H, W) > BIG_DIM_THRESHOLD:
+            # patch-wise BM3D (skalowalne, nie zmienia rozdzielczości)
+            try:
+                return extract_noise_residual_patchwise(gray)
+            except Exception as e:
+                print("Patch-wise BM3D failed, falling back to single-call BM3D. Exception:", repr(e))
+                # fallback do jednorazowego BM3D poniżej
+
+        # jeśli obraz mały albo patch-wise nie zadziałało -> spróbuj pojedynczego BM3D
         try:
-            sigma_est = np.mean(np.std(gray, axis=0))
-            den = bm3d(gray, sigma_psd=sigma_est)
-        except Exception:
-            den = wiener(gray, mysize=(3, 3))
+            sigma_est = float(np.std(gray))
+            sigma_est = float(np.clip(sigma_est if np.isfinite(sigma_est) and sigma_est > 0 else MIN_SIGMA,
+                                      MIN_SIGMA, MAX_SIGMA))
+            gray_c = np.ascontiguousarray(gray.astype(np.float64))
+            den = bm3d(gray_c, sigma_psd=sigma_est)
+            den = np.asarray(den, dtype=gray.dtype)
+        except Exception as e:
+            print("BM3D single-call failed, fallback to Wiener. Exception:", repr(e))
+            try:
+                den = wiener(gray, mysize=(3, 3))
+            except Exception as e2:
+                print("Wiener fallback failed:", repr(e2))
+                den = gray
+
     elif method == 'wavelet':
-        den = denoise_wavelet(gray, channel_axis=None, rescale_sigma=True)
+        try:
+            den = denoise_wavelet(gray, channel_axis=None, rescale_sigma=True)
+        except Exception as e:
+            print("Wavelet denoise failed, fallback to wiener:", repr(e))
+            den = wiener(gray, mysize=(3, 3))
     elif method == 'wiener':
         den = wiener(gray, mysize=(3, 3))
     else:
@@ -57,7 +195,10 @@ def build_reference_pattern(images, denoise_method='bm3d'):
 
     K_ref = K_num / (K_den + EPS)
     K_ref -= np.mean(K_ref)
-    K_ref = wiener(K_ref, mysize=(3, 3))
+    try:
+        K_ref = wiener(K_ref, mysize=(3, 3))
+    except Exception as e:
+        print("Wiener smoothing on K_ref failed:", repr(e))
     return K_ref.astype(np.float32)
 
 

@@ -11,7 +11,6 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🆕 stan dla porównania z bazą danych
   const [dbLoading, setDbLoading] = useState(false);
   const [dbMatches, setDbMatches] = useState<any[] | null>(null);
   const [bestMatch, setBestMatch] = useState<any | null>(null);
@@ -47,6 +46,13 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
 
   const handleCompareWithDB = async () => {
     if (!imageFile) return;
+
+    // 🟩 NOWE — jeśli noiseprint nie istnieje → wygeneruj
+    if (!noiseprint) {
+      await handleGenerate();
+      if (!noiseprint) return; // bezpieczeństwo
+    }
+
     setDbLoading(true);
     setDbMatches(null);
     setBestMatch(null);
@@ -54,7 +60,11 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
 
     try {
       const formData = new FormData();
-      formData.append("evidence", imageFile);
+
+      // 🟩 NAJWAŻNIEJSZA ZMIANA — wysyłamy noiseprint, nie obraz
+      // backend powinien przyjąć to pole np. "noiseprint"
+      const blob = await fetch(noiseprint!).then((res) => res.blob());
+      formData.append("noiseprint", blob, "noiseprint.png");
 
       const response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/compare_with_db`, {
         method: "POST",
@@ -62,8 +72,8 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
 
+      const data = await response.json();
       setDbMatches(data.matches || []);
       setBestMatch(data.best_match || null);
     } catch (err) {
@@ -102,7 +112,6 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
         <p className="text-gray-400 italic text-center">No image selected.</p>
       ) : (
         <>
-          {/* 🟩 Wyśrodkowane przyciski */}
           <div className="flex justify-center gap-6 mb-6">
             <button
               onClick={handleGenerate}
@@ -157,7 +166,6 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
             </div>
           )}
 
-          {/* 🟢 Sekcja wyników z bazy danych */}
           {dbMatches && (
             <div className="mt-12 border-t border-gray-700 pt-6">
               <h4 className="text-xl font-semibold text-emerald-400 mb-4">
@@ -166,7 +174,7 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
 
               {bestMatch ? (
                 <div className="bg-gray-800/50 rounded-lg p-4 border border-emerald-700 mb-4">
-                  <p className="text-emerald-300 font-bold mb-2">🏆 Best Match:</p>
+                  <p className="text-emerald-300 font-bold mb-2">Best Match:</p>
                   <p className="text-gray-200">
                     {bestMatch.manufacturer} {bestMatch.model}
                   </p>

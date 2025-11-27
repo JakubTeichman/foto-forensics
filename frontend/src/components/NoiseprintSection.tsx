@@ -1,5 +1,38 @@
 import React, { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
+
+const noiseprintInterpretation = [
+  {
+    range: "< 0.20",
+    label: "No similarity",
+    desc: "The noiseprints are completely different — the images originate from different sensors.",
+  },
+  {
+    range: "0.20 – 0.45",
+    label: "Low similarity",
+    desc: "Some minor shared characteristics are visible, but there is no evidence of device consistency.",
+  },
+  {
+    range: "0.45 – 0.65",
+    label: "Moderate correlation",
+    desc: "The noiseprint shows noticeable similarity, but it is not strong enough to draw a definitive conclusion.",
+  },
+  {
+    range: "0.65 – 0.80",
+    label: "Strong correlation",
+    desc: "The images likely come from the same device — interpretation should still be cautious.",
+  },
+  {
+    range: "0.80 – 0.90",
+    label: "Very strong match",
+    desc: "The noiseprints are nearly identical — high reliability of device consistency.",
+  },
+  {
+    range: "> 0.90",
+    label: "Practically certain match",
+    desc: "Extremely strong fit — the images originate from the same sensor.",
+  },
+];
 
 interface NoiseprintSectionProps {
   evidenceImage: File;
@@ -36,7 +69,6 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
-      // 🧠 Naprawione: upewniamy się, że base64 jest poprawnie zbudowane
       setEvidenceNoiseprint(
         data.evidence_noiseprint
           ? `data:image/png;base64,${data.evidence_noiseprint}`
@@ -52,7 +84,7 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
       setStatsEvidence(data.stats_evidence ?? null);
       setStatsMean(data.stats_mean ?? null);
 
-      // obliczenie embedding similarity
+      // embedding similarity
       if (referenceImages.length > 0) {
         const formDataEmb = new FormData();
         formDataEmb.append("evidence", evidenceImage);
@@ -81,13 +113,29 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
     }
   };
 
-  const getSimColor = (val: number) => {
-    if (val < 0.4) return "text-red-500";
-    if (val < 0.6) return "text-orange-400";
-    if (val < 0.75) return "text-yellow-400";
-    if (val < 0.9) return "text-lime-400";
-    return "text-green-400";
+  // --- NEW STATE ---
+  const [showInterpretation, setShowInterpretation] = useState(false);
+
+  const getRangeColor = (range: string) => {
+    if (range.includes("< 0.20")) return "text-red-400";
+    if (range.includes("0.20")) return "text-orange-400";
+    if (range.includes("0.45")) return "text-yellow-400";
+    if (range.includes("0.65")) return "text-lime-400";
+    if (range.includes("0.80")) return "text-green-400";
+    if (range.includes("> 0.90")) return "text-emerald-400";
+    return "text-gray-300";
   };
+
+  // Determine color class for a numeric similarity score
+  const getSimColor = (score: number) => {
+    if (score < 0.20) return "text-red-400";
+    if (score < 0.45) return "text-orange-400";
+    if (score < 0.65) return "text-yellow-400";
+    if (score < 0.80) return "text-lime-400";
+    if (score < 0.90) return "text-green-400";
+    return "text-emerald-400";
+  };
+
 
   return (
     <div className="mt-6 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/30 backdrop-blur-md relative">
@@ -121,11 +169,8 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
       {!loading && (evidenceNoiseprint || meanNoiseprint) && (
         <div className="mt-10">
           <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-            {/* Evidence */}
             <div className="flex-1 text-center">
-              <h4 className="text-gray-300 mb-3 font-semibold">
-                Evidence Noiseprint
-              </h4>
+              <h4 className="text-gray-300 mb-3 font-semibold">Evidence Noiseprint</h4>
               {evidenceNoiseprint ? (
                 <img
                   src={evidenceNoiseprint}
@@ -133,9 +178,7 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
                   className="rounded-lg border border-gray-700 mx-auto max-h-72 object-contain"
                 />
               ) : (
-                <p className="text-gray-500 italic text-sm">
-                  No noiseprint generated.
-                </p>
+                <p className="text-gray-500 italic text-sm">No noiseprint generated.</p>
               )}
               {statsEvidence && (
                 <div className="mt-2 text-sm text-gray-400 space-y-1">
@@ -147,11 +190,8 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
               )}
             </div>
 
-            {/* Mean reference */}
             <div className="flex-1 text-center">
-              <h4 className="text-gray-300 mb-3 font-semibold">
-                Mean Reference Noiseprint
-              </h4>
+              <h4 className="text-gray-300 mb-3 font-semibold">Mean Reference Noiseprint</h4>
               {meanNoiseprint ? (
                 <img
                   src={meanNoiseprint}
@@ -176,21 +216,53 @@ const NoiseprintSection: React.FC<NoiseprintSectionProps> = ({
 
           {embeddingSim !== null && (
             <div className="text-center mt-10 space-y-3">
-              <p
-                className={`text-5xl font-extrabold ${getSimColor(
-                  embeddingSim
-                )} drop-shadow-md`}
-              >
-                {embeddingSim.toFixed(3)}
-              </p>
-              <p className="text-gray-400 text-lg">
-                Embedding Similarity Score
-              </p>
+              <div className="flex items-center justify-center gap-2">
+                <p className={`text-5xl font-extrabold ${getSimColor(embeddingSim)} drop-shadow-md`}>
+                  {embeddingSim.toFixed(3)}
+                </p>
+
+                {/* --- Info icon toggle --- */}
+                <button
+                  onClick={() => setShowInterpretation(!showInterpretation)}
+                  className="p-1 hover:bg-gray-700 rounded-full transition"
+                >
+                  <Info className="text-blue-300" size={26} />
+                </button>
+              </div>
+
+              <p className="text-gray-400 text-lg">Embedding Similarity Score</p>
               <p className="text-gray-500 mt-2 text-sm italic">
                 Higher values indicate stronger evidence of same device origin.
               </p>
+
+              {/* --- INTERPRETATION BLOCK (togglable) --- */}
+              {showInterpretation && (
+                <div className="mt-6 bg-gray-800/70 p-5 rounded-xl border border-gray-700 text-left">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="text-blue-300" size={20} />
+                    <p className="text-blue-300 font-semibold tracking-wide">
+                      Interpretation of correlation score
+                    </p>
+                  </div>
+
+                  <ul className="space-y-3">
+                    {noiseprintInterpretation.map((item) => (
+                      <li key={item.range}>
+                        <p className="text-gray-300">
+                          <span className={`font-semibold ${getRangeColor(item.range)}`}>
+                            {item.range} — {item.label}
+                          </span>
+                          <br />
+                          <span className="text-gray-400 text-sm">{item.desc}</span>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
+
         </div>
       )}
     </div>

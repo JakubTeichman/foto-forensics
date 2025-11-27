@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { Info } from "lucide-react";
 
 interface NUAReportProps {
   imageFile: File | null;
@@ -15,6 +16,8 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
   const [referenceResults, setReferenceResults] = useState<NUAResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
+
   const lastHash = useRef<string | null>(null);
 
   useEffect(() => {
@@ -86,19 +89,56 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
   const total = referenceResults.length;
   const detectedRatio = total > 0 ? detectedCount / total : 0;
 
-  // 🔹 Formatowanie warunkowe (kolory)
-  let refBgColor = "bg-green-900/30 border-green-700"; // domyślnie zielony
+  // 🔹 Kolor dla reference set
+  let refBgColor = "bg-green-900/30 border-green-700";
   if (detectedRatio >= 0.4 && detectedRatio <= 0.6) {
     refBgColor = "bg-orange-900/30 border-orange-700";
   } else if (detectedRatio > 0.6) {
     refBgColor = "bg-red-900/30 border-red-700";
   }
 
+  // ===============================
+  // 🔹 Dynamiczne wyjaśnienia NUA
+  // ===============================
+
+  const explanationNoNUA =
+    "The absence of detected non-unique artefacts (NUA) suggests that the image was captured without photographic modes or post-processing procedures that could negatively affect the extraction of features such as PRNU or noiseprint.";
+
+  const explanationDetectedNUA =
+    "The detection of NUA indicates the possibility that the image was taken using photographic modes or subjected to post-processing, which may interfere with accurate and reliable extraction of features such as PRNU or noiseprint. This means that correlation results based on these features may be less reliable.";
+
+  const mixedCase = referenceResults.some((r) => r.detected) &&
+                     referenceResults.some((r) => !r.detected);
+
+  const finalExplanation =
+    mixedCase
+      ? `${explanationNoNUA}\n\n${explanationDetectedNUA}`
+      : mainResult?.detected
+      ? explanationDetectedNUA
+      : explanationNoNUA;
+
   return (
-    <div className="mt-6 mb-4 bg-gray-900 border border-teal-800 rounded-xl shadow-lg p-5 w-full">
-      <h2 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2 mr-1">
-        NUA Report
-      </h2>
+    <div className="mt-6 mb-4 bg-gray-900 border border-teal-800 rounded-xl shadow-lg p-5 w-full relative">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2 mr-1">
+          NUA Report
+        </h2>
+
+        {/* 🔹 Ikonka informacji */}
+        <button
+          onClick={() => setShowInfo(!showInfo)}
+          className="text-teal-400 hover:text-teal-200 transition"
+        >
+          <Info size={20} />
+        </button>
+      </div>
+
+      {/* 🔹 POPUP z wyjaśnieniem */}
+      {showInfo && (
+        <div className="absolute right-5 top-14 bg-gray-800 border border-teal-700 p-4 rounded-lg w-80 shadow-xl z-50 text-sm text-gray-300 whitespace-pre-wrap">
+          {finalExplanation}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center py-6">
@@ -161,9 +201,7 @@ const NUAReport: React.FC<NUAReportProps> = ({ imageFile, referenceImages = [] }
           )}
         </>
       ) : (
-        <p className="text-sm text-gray-400 text-center py-3">
-          No data available
-        </p>
+        <p className="text-sm text-gray-400 text-center py-3">No data available</p>
       )}
     </div>
   );

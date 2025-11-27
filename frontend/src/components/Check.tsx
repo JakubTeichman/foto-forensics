@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ImageUploader from './ImageUploader';
 import ChecksumPanel from './CheckSumPanel';
 import NUAReport from './NUAReport';
 import NoiseprintSection from './NoiseprintSection';
+import { Info } from "lucide-react";
+
 
 interface CheckProps {
   setActiveTab: (tab: string) => void;
@@ -18,6 +20,8 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [warning, setWarning] = useState<boolean>(false);
   const [denoiseMethod, setDenoiseMethod] = useState<string>('bm3d');
   const [loading, setLoading] = useState<boolean>(false);
+  const [showPceInfo, setShowPceInfo] = useState(false);
+
 
   const bothUploaded = image1 && images2.length > 0;
 
@@ -77,6 +81,67 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     return 'text-emerald-400';
   };
 
+  // ===== Popover state & helpers (Option B — clickable popover) =====
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Use PointerEvent + pointerdown to handle both mouse and touch in a type-safe way
+    const onClickOutside = (e: PointerEvent) => {
+      if (infoRef.current && !infoRef.current.contains(e.target as Node)) {
+        setInfoOpen(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInfoOpen(false);
+    };
+
+    document.addEventListener('pointerdown', onClickOutside);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('pointerdown', onClickOutside);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, []);
+
+  const pceInterpretation = [
+    {
+      range: '< 20',
+      label: 'Definite mismatch',
+      desc: 'Very low correlation — strong indication these images are from different devices.',
+    },
+    {
+      range: '< 45',
+      label: 'Very low correlation',
+      desc: 'Low similarity — likely not the same device.',
+    },
+    {
+      range: '< 55',
+      label: 'Possible but inconclusive',
+      desc: 'Some similarity detected but insufficient evidence — may be due to too few or low-quality reference images.',
+    },
+    {
+      range: '< 80',
+      label: 'Moderate probability',
+      desc: 'Correlation suggests potential match; more diverse or additional reference images recommended.',
+    },
+    {
+      range: '< 95',
+      label: 'High probability',
+      desc: 'High likelihood that images originate from the same device.',
+    },
+    {
+      range: '≥ 95',
+      label: 'Strong confidence',
+      desc: 'Very strong evidence that images come from the same device — confidence increases with higher values.',
+    },
+    {
+      range: '> 200',
+      label: 'Near-certain / Unambiguous',
+      desc: 'Extremely high correlation — effectively indisputable match from the same sensor.',
+    },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto mt-8">
       {/* 🔹 Nagłówek */}
@@ -92,7 +157,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
       {/* 🔹 Uploadery */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ImageUploader
-          title="Original Image"
+          title="Evidence Image"
           previewUrl={previewUrl1}
           setPreviewUrl={setPreviewUrl1}
           setSelectedFile={setImage1}
@@ -145,7 +210,6 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
             {loading ? 'Processing...' : 'Compare PRNU'}
           </button>
 
-
           {/* ⚠️ Ostrzeżenie */}
           {warning && (
             <div className="mt-6 mb-8 p-5 rounded-2xl bg-amber-900/20 border border-amber-500/40 text-amber-300 text-sm font-medium backdrop-blur-md shadow-inner shadow-amber-900/30">
@@ -181,17 +245,55 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
               ) : (
                 <>
                   {similarity !== null ? (
-                    <p className={`text-3xl font-bold ${getPceColor(similarity)} drop-shadow-md`}>
-                      {similarity.toFixed(3)} <span className="text-gray-400 text-lg">PCE</span>
-                    </p>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-3">
+                        <p className={`text-3xl font-bold ${getPceColor(similarity)} drop-shadow-md`}>
+                          {similarity.toFixed(3)} <span className="text-gray-400 text-lg">PCE</span>
+                        </p>
+
+                        {/* 🔹 Info icon — działanie 1:1 jak w NoiseprintSection */}
+                        <button
+                          onClick={() => setShowPceInfo((prev) => !prev)}
+                          className="text-teal-400 hover:text-teal-200 transition"
+                          title="Interpretacja wartości PCE"
+                        >
+                          <Info size={20} />
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-gray-500 italic text-sm">No data yet</p>
                   )}
+
                   {error && <p className="text-red-400 font-semibold mt-2">{error}</p>}
                 </>
               )}
             </div>
+
           </div>
+              {/* 🔽 Render interpretacji (bez popupu, 1:1 jak w NoiseprintSection) */}
+                      {showPceInfo && (
+                        <div className="mt-6 w-full bg-gray-900/70 p-4 shadow-inner shadow-black/20 backdrop-blur-md">
+
+                          <h4 className="text-lg font-semibold text-green-300 mb-3">PCE Interpretation</h4>
+
+                          <ul className="space-y-2 text-gray-300 text-sm">
+                            {pceInterpretation.map((item, index) => (
+                              <li
+                                key={index}
+                                className="p-2 rounded-lg bg-gray-800/60 border border-green-700/20"
+                              >
+                                <p className="font-semibold text-green-400">
+                                  {item.range} — {item.label}
+                                </p>
+                                <p className="text-gray-400 text-xs mt-1">{item.desc}</p>
+                              </li>
+                            ))}
+                          </ul>
+
+                        </div>
+                      )}
+
         </div>
       )}
 

@@ -16,7 +16,7 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
   const [bestMatch, setBestMatch] = useState<any | null>(null);
 
   const handleGenerate = async () => {
-    if (!imageFile) return;
+    if (!imageFile) return null;
     setLoading(true);
     setError(null);
 
@@ -24,33 +24,56 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
     formData.append("image", imageFile);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/generate`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate noiseprint (status: ${response.status})`);
+      // Wprowadzam pętlę retry z wykładniczym czasem oczekiwania dla stabilności
+      const maxRetries = 3;
+      let response: Response | undefined; // JAWNA DEKLARACJA TYPU
+      for (let i = 0; i < maxRetries; i++) {
+          try {
+              response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/generate`, {
+                  method: "POST",
+                  body: formData,
+              });
+              if (response.ok) break;
+          } catch (e) {
+              if (i < maxRetries - 1) {
+                  const delay = Math.pow(2, i) * 1000;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+              } else {
+                  throw new Error(`Failed to generate noiseprint after ${maxRetries} attempts.`);
+              }
+          }
       }
 
-      const data = await response.json();
-      setNoiseprint(`data:image/png;base64,${data.noiseprint}`);
+      if (!response!.ok) {
+        throw new Error(`Failed to generate noiseprint (status: ${response!.status})`);
+      }
+
+      const data = await response!.json();
+
+      const base64 = `data:image/png;base64,${data.noiseprint}`;
+      setNoiseprint(base64);
       setStats(data.stats);
+
+      return base64;       // <-- ZWRACAMY KONKRETNĄ WARTOŚĆ
     } catch (err: any) {
       console.error("Error generating noiseprint:", err);
       setError(err.message || "Unexpected error occurred while generating noiseprint.");
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
+
   const handleCompareWithDB = async () => {
     if (!imageFile) return;
 
-    // 🟩 NOWE — jeśli noiseprint nie istnieje → wygeneruj
-    if (!noiseprint) {
-      await handleGenerate();
-      if (!noiseprint) return; // bezpieczeństwo
+    let np = noiseprint;
+
+    if (!np) {
+      // Jeśli noiseprint nie jest jeszcze wygenerowany, wygeneruj go
+      np = await handleGenerate();
+      if (!np) return;  // <-- Zabezpieczenie przed błędem generowania
     }
 
     setDbLoading(true);
@@ -60,22 +83,36 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
 
     try {
       const formData = new FormData();
-
-      // 🟩 NAJWAŻNIEJSZA ZMIANA — wysyłamy noiseprint, nie obraz
-      // backend powinien przyjąć to pole np. "noiseprint"
-      const blob = await fetch(noiseprint!).then((res) => res.blob());
+      // Konwersja base64 na Blob do przesłania
+      const blob = await fetch(np).then((res) => res.blob());
       formData.append("noiseprint", blob, "noiseprint.png");
 
-      const response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/compare_with_db`, {
-        method: "POST",
-        body: formData,
-      });
+      // Wprowadzam pętlę retry z wykładniczym czasem oczekiwania dla stabilności
+      const maxRetries = 3;
+      let response: Response | undefined; // JAWNA DEKLARACJA TYPU
+      for (let i = 0; i < maxRetries; i++) {
+          try {
+              response = await fetch(`${process.env.REACT_APP_API_BASE}/noiseprint/compare_with_db`, {
+                  method: "POST",
+                  body: formData,
+              });
+              if (response.ok) break;
+          } catch (e) {
+              if (i < maxRetries - 1) {
+                  const delay = Math.pow(2, i) * 1000;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+              } else {
+                  throw new Error(`Failed to compare with database after ${maxRetries} attempts.`);
+              }
+          }
+      }
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response!.ok) throw new Error(`HTTP ${response!.status}`);
 
-      const data = await response.json();
+      const data = await response!.json();
       setDbMatches(data.matches || []);
       setBestMatch(data.best_match || null);
+      
     } catch (err) {
       console.error(err);
       setError("Error comparing noiseprint with database.");
@@ -84,12 +121,16 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
     }
   };
 
+  /**
+   * Zaktualizowana funkcja do kolorowania na skali 0-100 (Nowy format: transformed_score).
+   * Stara funkcja operowała na skali 0-1.
+   */
   const getSimColor = (val: number) => {
-    if (val < 0.4) return "text-red-500";
-    if (val < 0.6) return "text-orange-400";
-    if (val < 0.75) return "text-yellow-400";
-    if (val < 0.9) return "text-lime-400";
-    return "text-green-400";
+    if (val < 50) return "text-red-400"; // Poniżej losowego szumu
+    if (val < 60) return "text-orange-400"; // Niskie/średnie
+    if (val < 75) return "text-yellow-400"; // Średnie/dobre
+    if (val < 90) return "text-lime-400"; // Wysokie
+    return "text-green-400"; // Bardzo wysokie
   };
 
   useEffect(() => {
@@ -130,10 +171,10 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
             </button>
           </div>
 
-          {loading && (
+          {(loading || dbLoading) && (
             <div className="flex items-center justify-center gap-2 text-gray-400 mt-3">
               <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
-              <span>Generating noiseprint...</span>
+              <span>{loading ? "Generating noiseprint..." : "Comparing with database..."}</span>
             </div>
           )}
 
@@ -179,9 +220,13 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
                     {bestMatch.manufacturer} {bestMatch.model}
                   </p>
                   <p className="text-gray-400 text-sm">
-                    Similarity:{" "}
-                    <span className={`font-semibold ${getSimColor(bestMatch.similarity)}`}>
-                      {bestMatch.similarity}
+                    Similarity (0-100%):{" "}
+                    {/* ZMIANA 1: Użycie transformed_score zamiast similarity */}
+                    <span className={`font-semibold ${getSimColor(bestMatch.transformed_score)}`}>
+                      {bestMatch.transformed_score.toFixed(2)}%
+                    </span>
+                    <span className="ml-3 text-xs text-gray-500">
+                      (Raw Corr: {bestMatch.raw_correlation.toFixed(4)})
                     </span>
                   </p>
                 </div>
@@ -197,7 +242,8 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
                       <th className="px-3 py-2 text-left">Manufacturer</th>
                       <th className="px-3 py-2 text-left">Model</th>
                       <th className="px-3 py-2 text-left">Images</th>
-                      <th className="px-3 py-2 text-left">Similarity</th>
+                      <th className="px-3 py-2 text-left">Similarity (0-100%)</th>
+                      <th className="px-3 py-2 text-left">Raw Corr. (-1 do 1)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -210,8 +256,12 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
                         <td className="px-3 py-2">{m.manufacturer}</td>
                         <td className="px-3 py-2">{m.model}</td>
                         <td className="px-3 py-2">{m.num_images}</td>
-                        <td className={`px-3 py-2 font-semibold ${getSimColor(m.similarity)}`}>
-                          {m.similarity}
+                        {/* ZMIANA 2: Użycie transformed_score zamiast similarity */}
+                        <td className={`px-3 py-2 font-semibold ${getSimColor(m.transformed_score)}`}>
+                          {m.transformed_score.toFixed(2)}%
+                        </td>
+                        <td className="px-3 py-2 text-gray-400">
+                          {m.raw_correlation.toFixed(4)}
                         </td>
                       </tr>
                     ))}

@@ -81,6 +81,20 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
     return 'text-emerald-400';
   };
 
+  // Pobiera kolor dla zakresu opisanego w pceInterpretation
+  const getRangeColor = (range: string) => {
+    const testValue = (() => {
+      if (range.includes('≥')) return 95;
+      if (range.includes('>')) return 200;
+      if (range.includes('<')) return parseFloat(range.replace('<', '').trim());
+      return null;
+    })();
+
+    if (testValue === null) return 'text-gray-300';
+    return getPceColor(testValue);
+  };
+
+
   // ===== Popover state & helpers (Option B — clickable popover) =====
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef<HTMLDivElement | null>(null);
@@ -283,7 +297,7 @@ const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
                                 key={index}
                                 className="p-2 rounded-lg bg-gray-800/60 border border-green-700/20"
                               >
-                                <p className="font-semibold text-green-400">
+                                <p className={`font-semibold ${getRangeColor(item.range)}`}>
                                   {item.range} — {item.label}
                                 </p>
                                 <p className="text-gray-400 text-xs mt-1">{item.desc}</p>

@@ -32,6 +32,10 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   const [loadingAlgo, setLoadingAlgo] = useState(false);
   const [loadingSiamese, setLoadingSiamese] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [algoDone, setAlgoDone] = useState(false);
+  const [siameseDone, setSiameseDone] = useState(false);
+  const [tooDifferent, setTooDifferent] = useState(false);
+
 
   // ensure base64 has data URI prefix
   const ensureDataUri = (s?: string | null) => {
@@ -171,6 +175,15 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
       const data = await res.json();
       const mapped = mapBackendToReport(data);
       setReportAlgo(mapped);
+      setAlgoDone(true);
+
+      // sprawdzamy Twój "trzeci przypadek" – TREŚCIOWA RÓŻNICA
+      if (mapped.mse !== null && mapped.ssim !== null) {
+        if (mapped.mse > 0.02 || mapped.ssim < 0.70) {
+          setTooDifferent(true);
+        }
+      }
+
     } catch (err: any) {
       console.error("stegano/compare error:", err);
       setError(err?.message || "Unknown error");
@@ -204,6 +217,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
       const data = await res.json();
       const mappedSiamese = mapBackendToReport(data);
       setReportSiamese(mappedSiamese);
+      setSiameseDone(true);
     } catch (err: any) {
       console.error("stegano/siamese error:", err);
       setError(err?.message || "Unknown error (siamese)");
@@ -226,7 +240,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
 
       <div className="space-y-6">
         {/* Primary analyze */}
-        <button
+        {!algoDone && (<button
           onClick={handleAnalyze}
           disabled={loadingAlgo}
           className={`w-full py-3 text-lg font-semibold rounded-xl transition duration-300 ${
@@ -243,11 +257,68 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
             "Run Steganographic Analysis"
           )}
         </button>
+      )}
+
 
         {error && <div className="p-4 bg-red-900/40 border border-red-700 rounded-lg text-red-300">{error}</div>}
 
         {/* Algorithmic results */}
-        {reportAlgo && (
+        {/* --- INTERPRETATION MESSAGE BASED ON MSE + SSIM --- */}
+        {reportAlgo && (() => {
+          const mse = reportAlgo.mse ?? null;
+          const ssim = reportAlgo.ssim ?? null;
+
+          if (mse === null || ssim === null) return null;
+
+          // 1. IDENTYCZNE OBRAZY
+          if (mse < 0.00001 && ssim > 0.9999) {
+            return (
+              <div className="p-4 bg-blue-900/40 border border-blue-700 text-blue-300 rounded-lg flex gap-3">
+                <CheckCircle className="w-6 h-6 text-blue-300" />
+                <div>
+                  <p className="font-semibold text-lg">Images appear identical</p>
+                  <p className="text-sm">
+                    The content of both images is effectively the same — algorithmic differences will be minimal.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // 2. PRAWIE IDENTYCZNE
+          if (mse < 0.001 && ssim > 0.98) {
+            return (
+              <div className="p-4 bg-emerald-900/40 border border-emerald-700 text-emerald-300 rounded-lg flex gap-3">
+                <CheckCircle className="w-6 h-6 text-emerald-300" />
+                <div>
+                  <p className="font-semibold text-lg">Images are nearly identical</p>
+                  <p className="text-sm">
+                    These images differ only slightly — subtle artifacts may still be detectable.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // 3. ZBYT RÓŻNE TREŚCIOWO
+          if (mse > 0.01 && ssim < 0.80) {
+            return (
+              <div className="p-4 bg-red-900/40 border border-red-700 text-red-300 rounded-lg flex gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-300" />
+                <div>
+                  <p className="font-semibold text-lg">Images differ significantly</p>
+                  <p className="text-sm">
+                    The images appear to contain very different content — reliable steganographic comparison may not be possible.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
+
+        {reportAlgo && !tooDifferent &&(
           <div className="space-y-6">
             <h4 className="text-md font-semibold text-teal-300 mb-2">Algorithmic Analysis</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
@@ -353,7 +424,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
         )}
 
         {/* Run Siamese button */}
-        {reportAlgo && (
+        {reportAlgo && !siameseDone && !tooDifferent && (
           <button
             onClick={handleSiameseAnalyze}
             disabled={loadingSiamese}

@@ -143,3 +143,30 @@ TypeError: generate_noiseprint() missing 1 required positional argument: 'full_s
 
 --------------------------------------------------------------------------------
 
+[2025-12-03 07:01:52] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+
+[2025-12-03 07:01:54] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+
+[2025-12-03 07:01:54] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+

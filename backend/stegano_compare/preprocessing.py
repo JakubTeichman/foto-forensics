@@ -8,8 +8,8 @@ import torch
 import torchvision.transforms as T
 import torch.nn.functional as F
 from typing import Tuple
-from stegano_compare.srm_filters import get_srm_bank
-import numpy as np
+# Importujemy teraz funkcję z siamese_model.py, która zwraca kanoniczny bank SRM
+from stegano_compare.siamese_model import get_srm_processor 
 
 IMAGE_SIZE = 256
 PATCH_SIZE = 128
@@ -45,43 +45,46 @@ def random_center_patch(pil_img: Image.Image, size=PATCH_SIZE):
 def prepare_pair_tensors(original_file, suspicious_file, device='cpu', use_srm=True) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Returns: (a_full_srm, a_patch_srm, b_full_srm, b_patch_srm) each tensor shape (C, H, W) where
-    C = SRM filters count. Ready to stack into batch dim with unsqueeze(0).
+    C = SRM filters count (30). Ready to stack into batch dim with unsqueeze(0).
     """
     a_img = load_pil_from_file_storage(original_file)
     b_img = load_pil_from_file_storage(suspicious_file)
 
     # full + patch
-    a_full = _transform_full(a_img)            # 1xHxW
+    a_full = _transform_full(a_img)             # 1xHxW
     b_full = _transform_full(b_img)
     a_patch = T.Compose([T.Lambda(lambda img: random_center_patch(img, PATCH_SIZE)),
                          T.Resize((PATCH_SIZE, PATCH_SIZE)),
                          T.Grayscale(num_output_channels=1),
-                         T.ToTensor()])(a_img)                # 1xpxp
+                         T.ToTensor()])(a_img)              # 1xpxp
     b_patch = T.Compose([T.Lambda(lambda img: random_center_patch(img, PATCH_SIZE)),
                          T.Resize((PATCH_SIZE, PATCH_SIZE)),
                          T.Grayscale(num_output_channels=1),
                          T.ToTensor()])(b_img)
 
     device = torch.device(device)
+    
+    # NEW: Pobierz bank SRM z modułu modelu, aby zapewnić spójność.
+    SRM_BANK, _ = get_srm_processor() 
 
     if not use_srm:
-        # Just repeat single channel to fake channels
-        bank = get_srm_bank()
-        n = bank.shape[0]
+        # Just repeat single channel to fake channels (dla testów/legacy)
+        n = SRM_BANK.shape[0] # Liczba kanałów (30)
         a_full_srm = a_full.repeat(n, 1, 1)
         b_full_srm = b_full.repeat(n, 1, 1)
         a_patch_srm = a_patch.repeat(n, 1, 1)
         b_patch_srm = b_patch.repeat(n, 1, 1)
         return a_full_srm.to(device), a_patch_srm.to(device), b_full_srm.to(device), b_patch_srm.to(device)
 
-    bank = get_srm_bank().to(device)  # Nx1xhw (h,w typically 3)
+    # Teraz używamy SRM_BANK pobranego z siamese_model.py
+    bank = SRM_BANK.to(device)  # Nx1xhw (N=30)
     pad = (bank.shape[2] // 2, bank.shape[3] // 2)
 
     # convert to device
     a_full_t = a_full.to(device)
     b_full_t = b_full.to(device)
     a_patch_t = a_patch.to(device)
-    b_patch_t = b_patch.to(device)
+    b_patch_t = b_patch.to(device) # POPRAWIONE: używamy b_patch
 
     # add batch dim for conv2d (1x1xHxW) -> conv -> 1xN x H x W => squeeze(0)
     a_full_srm = F.conv2d(a_full_t.unsqueeze(0), bank, padding=pad).squeeze(0)

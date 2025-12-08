@@ -5,6 +5,8 @@
 The project combines elements of **digital forensics, data security, and computer vision** to create a powerful analytical platform for professionals.  
 This application is part of an **engineering thesis project**, accompanied by a theoretical and research-based diploma paper on the same topic.
 
+![Start page](https://github.com/JakubTeichman/foto-forensics/blob/main/backend/static/image.png)
+
 ---
 
 ## 🚀 Features
@@ -16,8 +18,8 @@ This application is part of an **engineering thesis project**, accompanied by a 
 - 🌙 **Modern dark-mode user interface**
 - ⚙️ **Dockerized full-stack environment**
 
----
 
+---
 
 ## 🐳 Run with Docker
 

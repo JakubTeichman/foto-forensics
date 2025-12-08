@@ -91,8 +91,16 @@ AGH, 2025
 
 ## 📄 License
 
-This project is released under the **MIT License**.  
-You are free to use, modify, and distribute this project for **educational or research purposes**, provided that proper credit is given.
+This project is licensed under the **Creative Commons BY-NC 4.0**  
+(CC BY-NC 4.0 – Attribution–NonCommercial).
+
+This means that you are free to:
+- copy, modify, and share the project,
+- as long as you give appropriate credit,
+- and do **not** use the material for commercial purposes.
+
+Full license text:  
+https://creativecommons.org/licenses/by-nc/4.0/
 
 ---
 

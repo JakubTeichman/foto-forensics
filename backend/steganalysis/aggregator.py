@@ -1,93 +1,103 @@
-# backend/steganalysis/aggregator.py
 import time
 import io
 from PIL import Image
 
-# Classic
-from .classic.rs_analysis import analyze as rs_analyze
+# Importujemy klasę, która zawiera logikę detektora Ensemble CNN
+# i realizuje skalowanie wyniku (procenty 0-100%)
+from steganalysis_single_cnn import AnalyzeSteganoSingle
 
-# Statistical
-from .statistical.noise_residuals import analyze as noise_residuals_analyze
-from .statistical.wavelet_analysis import analyze as wavelet_analyze
-from .statistical.cooccurrence_analysis import analyze as cooc_analyze
+# Inicjalizacja detektora poza funkcją, aby uniknąć ponownego ładowania modeli
+# w każdej analizie. Zakładamy, że kontekst pozwala na takie podejście.
+try:
+    SINGLE_CNN_ANALYZER = AnalyzeSteganoSingle()
+    ANALYZER_READY = True
+except Exception as e:
+    SINGLE_CNN_ANALYZER = None
+    ANALYZER_READY = False
+    print(f"Błąd inicjalizacji AnalyzeSteganoSingle: {e}")
 
-# CNN / ML hooks (commented until you have models ready)
-# from .ml.svm_detector import predict as svm_predict
-# from .ml.logistic_regression_detector import predict as logreg_predict
-# from .cnn.cnn_detector import predict as cnn_predict
-# from .cnn.noiseprint_extractor import analyze as noiseprint_analyze
 
-SUPPORTED_METHODS = [
-    ("rs_analysis", rs_analyze),
-    ("noise_residuals", noise_residuals_analyze),
-    ("wavelet", wavelet_analyze),
-    ("cooccurrence", cooc_analyze),
-    # add ML/CNN entries here when models available
-    # ("ml_svm", svm_predict),
-    # ("ml_logreg", logreg_predict),
-    # ("cnn", cnn_predict),
-    # ("noiseprint", noiseprint_analyze),
-]
-
-def _ensure_pil(image_bytes=None):
-    """Return PIL.Image (RGB) from bytes; raises ValueError if none given."""
+def _ensure_pil(image_bytes: bytes):
+    """Konwertuje bajty obrazu na obiekt PIL.Image (RGB)."""
     if image_bytes is None:
-        raise ValueError("image_bytes required")
+        raise ValueError("image_bytes wymagane")
     return Image.open(io.BytesIO(image_bytes)).convert('RGB')
+
 
 def analyze(image_bytes: bytes, include_meta: bool = True, timeout_s: float = 30.0):
     """
-    Run all supported methods on a single image (no aggregation).
-    Returns:
+    Uruchamia wyłącznie metodę Ensemble CNN (z AnalyzeSteganoSingle) i agreguje wyniki.
+    
+    Zwraca:
       {
         "analysis_results": {
-            "lsb_histogram": {method dict...},
-            "chi_square": {...},
-            ...
+            "ensemble_C1": {
+                "method": "ensemble_C1",
+                "score": 0.5,             # Surowy wynik (0-1)
+                "score_percent": 80.0,    # Wynik po skalowaniu (0-100)
+                "detected": True,
+                "details": {},
+            }
         },
         "meta": {"processing_time_s": float, "version": "v1.0"}
       }
     """
     t0 = time.time()
     pil_img = None
-    results = {}
+    
+    if not ANALYZER_READY:
+        return {"error": "Detektor nie został prawidłowo zainicjowany."}
 
-    # pre-create PIL image once to reuse (some analyzers accept pil_image)
+    # 1. Wczytanie obrazu
     try:
         pil_img = _ensure_pil(image_bytes=image_bytes)
     except Exception as e:
-        # if image can't be loaded -> return error
-        return {"error": f"invalid image bytes: {e}"}
+        return {"error": f"Błąd wczytywania bajtów obrazu: {e}"}
 
-    for key, func in SUPPORTED_METHODS:
-        try:
-            # Try call signature: prefer `pil_image` if analyzer accepts it
-            try:
-                res = func(pil_image=pil_img)
-            except TypeError:
-                # fallback: pass bytes
-                res = func(image_bytes=image_bytes)
-            # Ensure returned format
-            if not isinstance(res, dict):
-                res = {"method": key, "score": 0.0, "detected": False, "details": {"raw_return": str(res)}}
-        except Exception as exc:
-            res = {"method": key, "score": 0.0, "detected": False, "details": {"error": str(exc)}}
-        results[key] = res
+    # 2. Uruchomienie analizy (wyłącznie CNN Ensemble Detector)
+    try:
+        # Analiza zwraca pełny wynik w formacie z poprzedniego pliku
+        # ale nas interesuje tylko sekcja methods_results dla aggregation
+        full_analysis_report = SINGLE_CNN_ANALYZER.analyze(pil_image=pil_img)
+        
+        # Ekstrakcja wyników (tylko jedna metoda: "ensemble_C1")
+        results = full_analysis_report.get("methods_results", {})
+        
+        # Jeśli jest dostępna, dodajemy mapę cieplną do metadanych dla wygody
+        # Choć zgodnie ze standardem agregatora, zwracamy tylko "methods_results"
+        heatmap = full_analysis_report.get("average_heatmap_base64")
+        
+    except Exception as exc:
+        # Zwrócenie błędu, jeśli analiza się nie powiodła
+        results = {
+            "ensemble_C1": {
+                "method": "ensemble_C1", 
+                "score": 0.0, 
+                "score_percent": 0.0,
+                "detected": False, 
+                "details": {"error": str(exc)}
+            }
+        }
 
-    # ML/CNN hooks - commented: uncomment and implement predict wrappers that accept pil_image
-    # try:
-    #     svm_res = svm_predict(pil_image)
-    #     results["ml_svm"] = svm_res
-    # except Exception as e:
-    #     results["ml_svm"] = {"method":"ml_svm","score":0.0,"detected":False,"details":{"error":str(e)}}
-
+    # 3. Zgromadzenie metadanych
     t1 = time.time()
     out = {"analysis_results": results}
+    
     if include_meta:
-        out["meta"] = {"processing_time_s": float(t1 - t0), "method_count": len(results)}
+        meta_data = {
+            "processing_time_s": float(t1 - t0), 
+            "method_count": len(results),
+            "version": "v1.0"
+        }
+        # Dodanie mapy cieplnej do metadanych, jeśli jest dostępna
+        if heatmap:
+            meta_data["average_heatmap_base64"] = heatmap
+        
+        out["meta"] = meta_data
+        
     return out
 
-# Example usage:
+# Example usage (wymaga zainicjowanej klasy AnalyzeSteganoSingle):
 # with open("example.jpg", "rb") as f:
 #     bytes_img = f.read()
 # report = analyze(bytes_img)

@@ -4,51 +4,59 @@ import numpy as np
 import base64
 from PIL import Image
 from io import BytesIO
+from matplotlib import pyplot as plt
 
-# --- Classic methods ---
-from steganalysis.classic.rs_analysis import analyze as rs_analyze
-
-# --- Statistical methods ---
-from steganalysis.statistical.cooccurrence_analysis import analyze as cooccurrence_analyze
-from steganalysis.statistical.noise_residuals import analyze as noise_residuals_analyze
-from steganalysis.statistical.wavelet_analysis import analyze as wavelet_analyze
-from steganalysis.statistical.dct_stats_analysis import analyze_dct_stats as dct_stats_analyze
-from steganalysis.statistical.high_frequency_residual_analysis import high_frequency_residual_analysis
-from steganalysis.statistical.sample_pair_analysis import analyze as sample_pair_analyze
-from steganalysis.statistical.pixel_pair_histogram import analyze as pixel_pair_diff_analyze
-from steganalysis.statistical.noise_residual_correlation import analyze_noise_residual as noise_residual_corr_analyze
-from steganalysis.statistical.markov_cooccurrence_analysis import markov_cooccurrence_analysis as markov_cooccurrence_analyze
-
-# --- Deep Learning / Ensemble ---
+# --- Deep Learning / Ensemble Detector ---
+# Zgodnie z instrukcją, używamy tylko jednej, zaimportowanej metody.
 from steganalysis.cnn.ensemble_detector import analyze as ensemble_cnn_analyze
 
 
 class AnalyzeSteganoSingle:
     """
-    Unified runner for per-image steganalysis methods.
-    Runs all detectors, aggregates results, and computes average heatmap.
+    Ujednolicony runner dla analizy steganograficznej,
+    wykorzystujący wyłącznie detektor Ensemble CNN.
+    Wyniki są skalowane do procentów zgodnie z podanymi progami.
     """
 
     def __init__(self):
-        # Register available analysis methods
+        # Rejestrujemy tylko wymaganą metodę
         self.methods = {
-            # --- Classic ---
-            "rs_analysis": rs_analyze,
-
-            # --- Statistical ---
-            "cooccurrence": cooccurrence_analyze,
-            "noise_residuals": noise_residuals_analyze,
-            "wavelet": wavelet_analyze,
-            "dct_stats": dct_stats_analyze,
-            "high_freq_residual": high_frequency_residual_analysis,
-            "sample_pair": sample_pair_analyze,
-            "pixel_pair_diff": pixel_pair_diff_analyze,
-            "noise_residual_corr": noise_residual_corr_analyze,
-            "markov_cooccurrence": markov_cooccurrence_analyze,
-
-            # --- ML / Deep ensemble ---
+            # --- Deep ensemble (CNN Ensemble Detector) ---
             "ensemble_C1": ensemble_cnn_analyze,
         }
+
+    # ======================================================
+    # 🔢 Logika skalowania wyniku do procentów (0-100%)
+    # ======================================================
+    def _calculate_stego_percentage(self, score):
+        """
+        Przelicza surowy wynik (0.0 do 1.0) na procent wykrycia (0 do 100)
+        zgodnie z nieliniowymi progami:
+        - <= 0.1: 0%
+        - >= 0.6: 100%
+        - 0.1 < score < 0.6: skalowanie liniowe od 0% do 100%
+        """
+        # Progi
+        LOWER_THRESHOLD = 0.1  # Poniżej tej wartości wynik to 0%
+        UPPER_THRESHOLD = 0.6  # Powyżej tej wartości wynik to 100%
+        SCALING_RANGE = UPPER_THRESHOLD - LOWER_THRESHOLD  # Zakres skalowania: 0.5
+
+        if score <= LOWER_THRESHOLD:
+            return 0.0
+        
+        if score >= UPPER_THRESHOLD:
+            return 100.0
+
+        # Liniowe skalowanie dla wyniku w zakresie (0.1, 0.6)
+        # 1. Przesunięcie: (score - 0.1) -> zakres (0, 0.5)
+        # 2. Skalowanie do 0-1: / 0.5
+        # 3. Mnożenie przez 100, aby uzyskać procent
+        
+        normalized_score = (score - LOWER_THRESHOLD) / SCALING_RANGE
+        percentage = normalized_score * 100.0
+        
+        # Ograniczenie do [0.0, 100.0] (choć dzięki if/else powinno być to zbędne)
+        return max(0.0, min(100.0, percentage))
 
     # ======================================================
     # 🔁 Pomocnicze metody (kodowanie / dekodowanie heatmap)
@@ -64,10 +72,10 @@ class AnalyzeSteganoSingle:
 
     def _encode_heatmap(self, array):
         """Convert NumPy array to base64-encoded PNG."""
-        from matplotlib import pyplot as plt
-
+        
         plt.figure(figsize=(4, 4))
-        plt.imshow(array, cmap="inferno")
+        # Używamy cmap="inferno" jak w oryginalnym kodzie
+        plt.imshow(array, cmap="inferno") 
         plt.axis("off")
 
         buf = BytesIO()
@@ -81,8 +89,9 @@ class AnalyzeSteganoSingle:
     # ======================================================
     def analyze(self, image_path=None, pil_image=None):
         """
-        Run all registered steganalysis methods and aggregate results.
+        Uruchamia tylko detektor Ensemble CNN i agreguje wynik.
         """
+        # 1. Wczytanie obrazu
         if pil_image is not None:
             pil_rgb = pil_image.convert("RGB")
         elif image_path:
@@ -94,69 +103,68 @@ class AnalyzeSteganoSingle:
         else:
             raise ValueError("Provide either image_path or pil_image")
 
-        pil_gray = pil_rgb.convert("L")
-
+        # 2. Uruchomienie JEDYNEJ metody
+        name = "ensemble_C1"
+        fn = self.methods[name]
         methods_results = {}
-        heatmaps = []
+        
+        try:
+            # CNN pracuje na kolorowym obrazie (pil_rgb)
+            res = fn(pil_image=pil_rgb)
+            
+            # Weryfikacja formatu wyniku
+            if not isinstance(res, dict) or "score" not in res:
+                 # Zakładamy, że funkcja zwraca słownik z kluczem 'score' i opcjonalnie 'heatmap_base64'
+                 # Jeśli nie jest słownikiem, rzucamy błąd
+                 raise ValueError("Unexpected result format from ensemble_cnn_analyze.")
+            
+            raw_score = float(res.get("score", 0.0))
+            
+            # 3. Obliczenie wyniku procentowego zgodnie z nową logiką
+            score_percent = self._calculate_stego_percentage(raw_score)
+            
+            # Warunek wykrycia: uznajemy, że wykryto, jeśli raw_score przekracza LOWER_THRESHOLD (0.1),
+            # co odpowiada wynikowi procentowemu > 0%.
+            detected = score_percent > 0.0
+            
+            methods_results[name] = {
+                "method": res.get("method", name),
+                # Zwracamy wynik surowy jako "score"
+                "score": raw_score, 
+                "score_percent": score_percent, # Dodatkowo zwracamy wynik procentowy
+                "detected": detected,
+                "details": res.get("details", {}),
+            }
 
-        for name, fn in self.methods.items():
-            try:
-                # Wybór formatu wejściowego w zależności od metody
-                if name == "lsb_histogram":
-                    res = fn(pil_image=pil_rgb)
-                elif name == "high_freq_residual":
-                    res = fn(np.array(pil_rgb))
-                elif name == "ensemble_C1":
-                    res = fn(pil_image=pil_rgb)  # CNN pracuje na kolorowym obrazie
-                else:
-                    res = fn(pil_image=pil_gray)
-
-                # Normalizacja formatu wyników
-                if not isinstance(res, dict):
-                    res = {
-                        "method": name,
-                        "score": float(res),
-                        "detected": float(res) >= 0.5,
-                        "details": {},
-                    }
-
-                methods_results[name] = {
-                    "method": res.get("method", name),
-                    "score": float(res.get("score", 0.0)),
-                    "detected": bool(res.get("detected", False)),
-                    "details": res.get("details", {}),
-                }
-
-                # Zbieranie map cieplnych, jeśli są dostępne
-                if "heatmap_base64" in res:
-                    arr = self._decode_heatmap(res["heatmap_base64"])
-                    if arr is not None:
-                        heatmaps.append(arr)
-
-            except Exception as e:
-                methods_results[name] = {
-                    "method": name,
-                    "score": 0.0,
-                    "detected": False,
-                    "details": {"error": str(e)},
-                }
-
-        # 🔥 Uśrednienie heatmap (jeśli istnieją)
-        if heatmaps:
-            avg_heatmap = np.mean(heatmaps, axis=0)
-            avg_heatmap_encoded = self._encode_heatmap(avg_heatmap)
-        else:
+            # 4. Obsługa mapy cieplnej
             avg_heatmap_encoded = None
+            if "heatmap_base64" in res:
+                arr = self._decode_heatmap(res["heatmap_base64"])
+                if arr is not None:
+                    # Ponieważ jest tylko jedna metoda, "average_heatmap" to ta jedyna mapa
+                    avg_heatmap_encoded = self._encode_heatmap(arr)
 
-        # 🧩 Określenie wyniku końcowego
-        detected_methods = [n for n, r in methods_results.items() if r.get("detected", False)]
-        overall_detected = len(detected_methods) > 0
+        except Exception as e:
+            # Obsługa błędu, jeśli detektor zawiedzie
+            avg_heatmap_encoded = None
+            methods_results[name] = {
+                "method": name,
+                "score": 0.0,
+                "score_percent": 0.0,
+                "detected": False,
+                "details": {"error": str(e)},
+            }
+
+        # 5. Określenie wyniku końcowego i zwrot
+        overall_detected = methods_results[name]["detected"]
+        detected_methods = [name] if overall_detected else []
 
         return {
             "hidden_detected": overall_detected,
             "detected_methods": detected_methods,
-            "total_methods": len(methods_results),
-            "positive_count": len(detected_methods),
+            "total_methods": len(methods_results), # Będzie zawsze 1
+            "positive_count": len(detected_methods), # Będzie 1 lub 0
             "methods_results": methods_results,
-            "average_heatmap_base64": avg_heatmap_encoded,
+            # "average_heatmap_base64" jest mapą z pojedynczej metody
+            "average_heatmap_base64": avg_heatmap_encoded, 
         }

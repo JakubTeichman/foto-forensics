@@ -1,13 +1,73 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+
+// Definicje typów dla bardziej czytelnego kodu
+interface SteganoMethodResult {
+  method: string;
+  score: number; // Surowy wynik (0-1)
+  score_percent: number; // Wynik skalowany (0-100)
+  detected: boolean;
+  details: Record<string, any>;
+}
+
+// Zaktualizowany interfejs, aby pasował do struktury zwracanej przez endpoint
+interface SteganoReportResponse {
+  status: string;
+  hidden_detected: boolean; // Top-level
+  method: string;
+  details: {
+    methods_results: Record<string, SteganoMethodResult>;
+    average_heatmap_base64?: string;
+    [key: string]: any; // Dopuszczamy inne pola z 'results'
+  };
+  methods_results: Record<string, SteganoMethodResult>; // Duplikat na najwyższym poziomie
+}
 
 interface SteganoReportProps {
   image: File | null;
 }
 
+// =========================================================================
+// 🎨 Progress Bar Component
+// =========================================================================
+const ProgressBar: React.FC<{ percentage: number; color: string }> = ({
+  percentage,
+  color,
+}) => {
+  // Ograniczamy procent do wyświetlania, na wszelki wypadek
+  const displayPercentage = Math.max(0, Math.min(100, percentage));
+  const barWidth = `${Math.round(displayPercentage)}%`;
+
+  return (
+    <div className="w-full bg-gray-700 rounded-full h-8 overflow-hidden shadow-inner">
+      <div
+        className={`h-full text-base font-bold text-gray-900 text-center flex items-center justify-center transition-all duration-700 ease-out ${color}`}
+        style={{ width: barWidth }}
+      >
+        {displayPercentage.toFixed(1)}%
+      </div>
+    </div>
+  );
+};
+
+
 const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<SteganoReportResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Zakładamy, że wynik metody CNN jest pod kluczem "ensemble_C1"
+  const cnnResult: SteganoMethodResult | null = useMemo(() => {
+    // Poprawiona ścieżka dostępu: wyniki są zagnieżdżone w 'details.methods_results'
+    const results = result?.details?.methods_results;
+    if (results && results.ensemble_C1) {
+      return results.ensemble_C1;
+    }
+    return null;
+  }, [result]);
+
+  const scorePercent = cnnResult?.score_percent ?? 0;
+  const rawScore = cnnResult?.score ?? 0;
+
 
   const analyzeStegano = async () => {
     if (!image) {
@@ -23,7 +83,8 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
     formData.append("file", image);
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_BASE}/stegano/analyze`, {
+      // Wysłanie zapytania do API (zakładamy endpoint /stegano/analyze)
+      const res = await fetch(`/stegano/analyze`, {
         method: "POST",
         body: formData,
       });
@@ -31,188 +92,130 @@ const SteganoReport: React.FC<SteganoReportProps> = ({ image }) => {
       const data = await res.json();
 
       if (res.ok) {
-        setResult(data);
+        // Poprawione sprawdzenie: szukamy 'ensemble_C1' w 'details.methods_results'
+        const cnnData = data?.details?.methods_results?.ensemble_C1;
+        
+        if (cnnData) {
+          setResult(data as SteganoReportResponse); // Ustawiamy całą odpowiedź z API
+        } else {
+             // W przypadku błędu backendu lub nieprawidłowej struktury
+             setError("Analysis structure error: 'ensemble_C1' result missing or invalid. Check backend logs for full details.");
+        }
+        
       } else {
         setError(data.error || "Steganography analysis failed.");
       }
     } catch (err) {
       console.error("Error analyzing steganography:", err);
-      setError("Failed to connect to backend.");
+      setError("Failed to connect to backend or process data.");
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const extractMethods = (resp: any) => {
-    if (!resp) return {};
-    if (resp.report?.analysis_results) return resp.report.analysis_results;
-    if (resp.details?.methods_results) return resp.details.methods_results;
-    if (resp.details && typeof resp.details === "object") {
-      const maybe = Object.entries(resp.details).every(
-        ([_, v]) => v && typeof v === "object" && ("score" in v || "detected" in v)
-      );
-      if (maybe) return resp.details;
+  // 🔹 Określenie koloru i etykiety na podstawie wyniku procentowego (po angielsku)
+  const getDetectionStatus = (percentage: number) => {
+    let label = "No Steganography Detected";
+    let colorClass = "bg-green-600";
+    let textColor = "text-green-400";
+    let emoji = "✅";
+
+    if (percentage >= 80) {
+      label = "VERY HIGH Probability of Hidden Data";
+      colorClass = "bg-red-700";
+      textColor = "text-red-400";
+      emoji = "🚨";
+    } else if (percentage >= 50) {
+      label = "High Probability of Hidden Data";
+      colorClass = "bg-red-600";
+      textColor = "text-red-400";
+      emoji = "🔥";
+    } else if (percentage >= 20) {
+      label = "Moderate Probability of Hidden Data";
+      colorClass = "bg-yellow-500";
+      textColor = "text-yellow-400";
+      emoji = "⚠️";
+    } else if (percentage > 0) {
+      label = "Low Probability of Hidden Data";
+      colorClass = "bg-green-500";
+      textColor = "text-green-500";
+      emoji = "🔎";
     }
-    if (resp.analysis_results) return resp.analysis_results;
-    return {};
+    
+    return { label, colorClass, textColor, emoji };
   };
 
-  const methodsResults = extractMethods(result);
+  const { label, colorClass, textColor, emoji } = getDetectionStatus(scorePercent);
+  // Status detected jest używany głównie dla celów backendowych (czy przekroczono 0.1)
+  const detected = cnnResult?.detected ?? false; 
 
-  // 🔹 Obliczanie procentu wykryć
-  const totalMethods = Object.keys(methodsResults).length;
-  const detectedCount = Object.values(methodsResults).filter((m: any) => m?.detected).length;
-  const detectionRatio = totalMethods > 0 ? detectedCount / totalMethods : 0;
-
-  // 🔹 Opisowy poziom wykrycia
-  let detectionLabel = "No hidden data detected.";
-  let detectionColor = "text-green-400";
-  if (detectionRatio >= 0.25 && detectionRatio <= 0.5) {
-    detectionLabel = "Possibility of hidden data.";
-    detectionColor = "text-orange-400";
-  } else if (detectionRatio > 0.5) {
-    detectionLabel = "Hidden data detected!";
-    detectionColor = "text-red-400";
-  } else if (detectionRatio > 0 && detectionRatio < 0.25) {
-    detectionLabel = "Low possibility of hidden data.";
-    detectionColor = "text-yellow-400";
-  }
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
-        Steganography Analysis
+    <div className="w-full p-4 md:p-6 bg-gray-900 rounded-xl shadow-2xl">
+      <h3 className="text-xl font-semibold mb-6 text-teal-400 text-center">
+        CNN Steganography Detector
       </h3>
 
       {!image && (
-        <p className="text-gray-400 italic text-center mb-4">
-          No image selected for analysis.
+        <p className="text-gray-400 italic text-center mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+          Please select an image to start the analysis.
         </p>
       )}
 
-      {/* 🔹 Przycisk analizy */}
-      {!result && (
-      <div className="flex justify-left mb-4">
-        <button
-          onClick={analyzeStegano}
-          disabled={!image || isAnalyzing}
-          className={`px-5 py-2 rounded-lg font-semibold transition-all duration-300 ${
-            !image
-              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-              : isAnalyzing
-              ? "bg-gray-600 text-gray-300 cursor-wait"
-              : "bg-teal-600 hover:bg-teal-700 text-white shadow-md"
-          }`}
-        >
-          {isAnalyzing ? "Analyzing..." : "Run Steganography Analysis"}
-        </button>
-      </div>
+      {/* 🔹 Analysis Button (zgodnie z życzeniem, mechanizm się nie zmienia) */}
+      {image && !result && (
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={analyzeStegano}
+            disabled={isAnalyzing}
+            className={`w-full max-w-md px-6 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-[1.02] shadow-xl ${
+              isAnalyzing
+                ? "bg-gray-600 text-gray-300 cursor-wait"
+                : "bg-teal-600 hover:bg-teal-700 text-white "
+            }`}
+          >
+            {isAnalyzing ? "Analysis in progress..." : "Run Steganography Analysis"}
+          </button>
+        </div>
       )}
 
       {isAnalyzing && (
-        <div className="flex flex-col items-center py-4">
-          <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center py-8 bg-gray-800 rounded-xl">
+          <div className="w-8 h-8 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm mt-3 text-gray-400">
-            Generating steganography analysis...
+            Analyzing image using CNN model...
           </p>
         </div>
       )}
 
-      {error && <p className="text-red-500 mt-4 font-medium text-center">⚠️ {error}</p>}
+      {error && <p className="text-red-500 mt-4 font-medium text-center p-3 bg-red-900 bg-opacity-30 rounded-lg border border-red-700">⚠️ {error}</p>}
 
-      {result && (
-        <div
-          className={`mt-5 bg-gray-900 border border-gray-800 rounded-xl p-5 transition-all duration-500`}
-        >
-          <h4 className="text-lg font-semibold text-teal-400 mb-3 text-left">
-            Steganography Detection Report
-          </h4>
-
-          <div className="mb-3 text-left">
-            <div className={`font-semibold ${detectionColor}`}>{detectionLabel}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Methods run: {totalMethods} — positives: {detectedCount} (
-              {(detectionRatio * 100).toFixed(1)}%)
-            </div>
-          </div>
-
-          {Object.keys(methodsResults).length > 0 ? (
-            <>
-              <table className="w-full text-sm border-collapse mt-2">
-                <thead>
-                  <tr className="border-b border-gray-700 text-gray-300">
-                    <th className="text-left py-1">Method</th>
-                    <th className="text-left py-1">Score</th>
-                    <th className="text-left py-1">Detection Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(methodsResults).map(([method, data]: any) => {
-                    const scoreValue =
-                      typeof data?.score_calibrated === "number"
-                        ? data.score_calibrated
-                        : typeof data?.score_raw === "number"
-                        ? data.score_raw
-                        : typeof data?.score === "number"
-                        ? data.score
-                        : parseFloat(
-                            data?.score_calibrated || data?.score_raw || data?.score
-                          ) || 0;
-
-                    const detected = !!data?.detected;
-
-                    return (
-                      <tr key={method} className="border-b border-gray-800 text-gray-300">
-                        <td className="py-1 font-medium">{method}</td>
-                        <td className="py-1">{scoreValue.toFixed(3)}</td>
-                        <td
-                          className={`py-1 font-semibold ${
-                            detected ? "text-red-400" : "text-green-400"
-                          }`}
-                        >
-                          {detected ? "Detected" : "Not detected"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* 🔥 Heatmapa — zawsze pokazuj jeśli jest dostępna */}
-              {result.average_heatmap_base64 && (
-                <div className="mt-6 text-center">
-                  <h5 className="text-md font-semibold text-teal-400 mb-3">
-                    Aggregated Steganalysis Heatmap
-                  </h5>
-                  <div className="flex justify-center">
-                    <img
-                      src={`data:image/png;base64,${result.average_heatmap_base64}`}
-                      alt="Aggregated Steganalysis Heatmap"
-                      className="rounded-xl shadow-lg border border-gray-800 max-w-full h-auto"
-                      style={{
-                        width: "80%",
-                        maxWidth: "480px",
-                        transition: "transform 0.3s ease",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.transform = "scale(1.03)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.transform = "scale(1.0)")
-                      }
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Average of all individual method heatmaps.
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-gray-500 italic mt-2 text-center">
-              No per-method details available.
+      {cnnResult && (
+        <div className={`mt-5 bg-gray-900 rounded-xl p-6`}>
+          
+          {/* Main Result and Progress Bar */}
+          <div className="text-center mb-6">
+            <p className={`text-xl font-extrabold ${textColor} mb-6 flex justify-center items-center gap-3`}>
+              {label}
             </p>
-          )}
+            
+            {/* Progress Bar (Główna wizualizacja) */}
+            <ProgressBar percentage={scorePercent} color={colorClass} />
+            
+            <p className="text-xs text-gray-500 mt-3 italic">
+              Raw Model Score (0.0 - 1.0): {rawScore.toFixed(4)}
+            </p>
+          </div>
+          
+          {/* Rerun Button */}
+           <div className="flex justify-center mt-6 pt-4 border-t border-gray-700">
+             <button
+              onClick={() => { setResult(null); setError(null); analyzeStegano(); }}
+              className="px-4 py-2 text-sm text-teal-300 bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Run Analysis Again
+            </button>
+          </div>
         </div>
       )}
     </div>

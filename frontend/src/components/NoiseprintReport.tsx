@@ -145,7 +145,7 @@ const NoiseprintReport: React.FC<NoiseprintReportProps> = ({ imageFile }) => {
 
   return (
     <div className="bg-gray-900 border border-emerald-800 rounded-xl p-6 mt-6 shadow-lg">
-      <h3 className="text-xl font-semibold mb-6 text-emerald-400 flex items-center gap-2 text-center">
+      <h3 className="text-xl font-semibold mb-6 text-teal-400 flex items-center gap-2 text-center">
         Noiseprint Report
       </h3>
 

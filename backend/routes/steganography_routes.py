@@ -1,39 +1,147 @@
-# stegano_routes.py
-from flask import Blueprint, request, jsonify, current_app
+import os
+import tempfile
+import io
+import base64
+import traceback
+from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
-import os, tempfile, io, base64, traceback
 from PIL import Image
-import numpy as np
+from typing import Optional, Dict
 
-# existing analyzer imports (kept)
+# Standardowe importy ML
+import numpy as np
+import torch
+import matplotlib
+import matplotlib.pyplot as plt
+
+# Globalna konfiguracja backendu Matplotlib (musi być przed pierwszym użyciem plt)
+matplotlib.use('Agg')
+
+# --- IMPORTY ZEWNĘTRZNYCH ANALIZATORÓW (ZACHOWANE) ---
+# Użycie ImportError jest czystsze do obsługi opcjonalnych zależności
 try:
     from stegano_compare.stegano_compare_main import analyze_images
-except Exception:
+except ImportError:
     analyze_images = None
 
 try:
     from steganalysis.analyze_stegano_single import AnalyzeSteganoSingle
-except Exception:
+except ImportError:
     AnalyzeSteganoSingle = None
 
 try:
     from steganalysis.aggregator import analyze as aggregator_analyze
-except Exception:
+except ImportError:
     aggregator_analyze = None
 
-# new imports
-import torch
+# --- IMPORTY MODELU SIAMESE ---
+# Importujemy również sam moduł, aby znaleźć jego ścieżkę
+import stegano_compare
 from stegano_compare.preprocessing import prepare_pair_batch
-from stegano_compare.siamese_model import load_siamese_model
-from stegano_compare.srm_filters import get_srm_bank
-import matplotlib.pyplot as plt
+from stegano_compare.siamese_model import load_siamese_model, SiameseMulti
 
-steganography_bp = Blueprint("steganography_bp", __name__)
+# --- KONFIGURACJA ŚCIEŻEK I PARAMETRÓW DLA SIAMESE ---
+MODEL_FILENAME = "siamese_stego_vs_pseudo_best.pth"
+# Ustawiamy MODEL_PATH na samą nazwę pliku. Wyszukiwanie odbywa się w _get_model()
+DEFAULT_MODEL_PATH = MODEL_FILENAME 
 
+MODEL_PATH = os.environ.get("SIAMESE_MODEL_PATH", DEFAULT_MODEL_PATH)
+print(f"DEBUG: Wyszukiwana nazwa pliku modelu: {MODEL_FILENAME}") # JAWNE LOGOWANIE NAZWY
+
+THRESHOLD = float(os.environ.get("SIAMESE_THRESHOLD", "0.58")) 
+
+# --- FUNKCJE POMOCNICZE DLA SIAMESE ---
+_SIAMESE_MODEL = None
+# Nowa globalna zmienna do przechowywania szczegółowego błędu ładowania
+_SIAMESE_MODEL_ERROR = None 
+
+def _get_model():
+    """Ładuje model SiameseMulti jako singleton, aktywnie wyszukując plik wagi za pomocą ścieżek względnych."""
+    global _SIAMESE_MODEL
+    global _SIAMESE_MODEL_ERROR
+
+    if _SIAMESE_MODEL is None:
+        
+        # Lista POTENCJALNYCH ścieżek względnych do przeszukania, w oparciu o PWD (/backend)
+        possible_paths = [
+            MODEL_FILENAME,                                            # 1. Bieżący katalog roboczy (/backend/)
+            os.path.join("models", MODEL_FILENAME),                    # 2. Podkatalog 'models/' (/backend/models/)
+            os.path.join("stegano_compare", "models", MODEL_FILENAME), # 3. Częsta ścieżka projektu (/backend/stegano_compare/models/)
+            os.path.join("routes", MODEL_FILENAME),                    # 4. Jeśli plik wagi jest w tym samym folderze co routes.py
+        ]
+        
+        found_path = None
+        for path in possible_paths:
+            if os.path.exists(path) and os.access(path, os.R_OK):
+                found_path = path
+                break
+        
+        if found_path is None:
+            # Tworzenie komunikatu o błędzie z listą przeszukanych ścieżek
+            searched_paths_str = ", ".join(possible_paths)
+            _SIAMESE_MODEL_ERROR = f"Plik modelu '{MODEL_FILENAME}' nie został znaleziony w PWD ani w następujących ścieżkach względnych (względem PWD serwera, czyli /backend/): {searched_paths_str}."
+            print(f"BŁĄD KRYTYCZNY: {_SIAMESE_MODEL_ERROR}")
+            return None
+        
+        # Plik wagi został znaleziony. Używamy znalezionej ścieżki.
+        MODEL_PATH_USED = found_path
+        
+        try:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            
+            # KROK 1: Usunięcie ręcznego ładowania stanu.
+            # load_siamese_model będzie teraz ładować wagi.
+            print(f"INFO: Przekazywanie ścieżki {MODEL_PATH_USED} do load_siamese_model.")
+            
+            # ZMIANA: Wymuszamy in_channels=12, aby pasowało do dostępnego pliku wagi.
+            _SIAMESE_MODEL = load_siamese_model(
+                model_path=MODEL_PATH_USED, # Przekazujemy odnalezioną ścieżkę
+                device=device,
+                in_channels=12, # Zmienione z 30 na 12, aby pasowało do wagi
+            )
+
+            print(f"INFO: Model Siamese załadowany pomyślnie na urządzeniu: {device} (Architektura 12-kanałowa).")
+            _SIAMESE_MODEL_ERROR = None # Zerowanie błędu po sukcesie
+        except Exception as e:
+            # ZAPIS SZCZEGÓŁOWEGO BŁĘDU DO GLOBALNEJ ZMIENNEJ
+            detailed_error = f"Błąd wewnętrzny PyTorch: {type(e).__name__}: {str(e)}"
+            _SIAMESE_MODEL_ERROR = detailed_error
+            print(f"BŁĄD KRYTYCZNY: Nie udało się załadować modelu Siamese: {detailed_error}")
+            # Nadal drukujemy traceback, aby zobaczyć, co dokładnie dzieje się wewnątrz load_siamese_model
+            traceback.print_exc() 
+            _SIAMESE_MODEL = None
+            
+    return _SIAMESE_MODEL
+
+def _make_heatmap(full_a_tensor: torch.Tensor, full_b_tensor: torch.Tensor) -> Optional[np.ndarray]:
+    """
+    Funkcja tworząca mapę cieplną z uśrednionej kwadratowej różnicy tensorów wejściowych (C=30).
+    """
+    try:
+        # Uproszczony wskaźnik aktywności: Średnia kwadratów różnicy kanałów
+        diff = (full_a_tensor - full_b_tensor).pow(2)
+        # Oblicz średnią wzdłuż wymiaru kanałów (C), zostawiając H i W
+        heat_raw = diff.mean(dim=0).cpu().numpy()
+        
+        # Normalizacja do 0-1
+        min_val, max_val = heat_raw.min(), heat_raw.max()
+        if max_val > min_val:
+            heat_norm = (heat_raw - min_val) / (max_val - min_val)
+        else:
+            heat_norm = np.zeros_like(heat_raw)
+
+        return heat_norm
+    except Exception as e:
+        print(f"Błąd generowania heatmapy: {e}")
+        return None
+
+# --- INICJALIZACJA BLUEPRINTU ---
+steganography_bp = Blueprint("steganography_bp", __name__) # Używamy nazwy z oryginalnego pliku
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- existing endpoints (kept) ----------------
+
 @steganography_bp.route("/stegano/analyze", methods=["POST"])
 def analyze_steganography():
     try:
@@ -111,68 +219,12 @@ def stegano_compare():
     return jsonify(result)
 
 # ---------------- NEW endpoint: Siamese CNN compare ----------------
-# configuration: model path and threshold (you can change path or set via env var)
-import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # /app/routes
-MODEL_PATH = os.path.join(BASE_DIR, "..", "stegano_compare", "models", "siamese_multi_best.pth")
-MODEL_PATH = os.path.abspath(MODEL_PATH)
-THRESHOLD = float(os.environ.get("SIAMESE_THRESHOLD", "0.5920"))
-IN_CHANNELS = int(os.environ.get("SIAMESE_IN_CHANNELS", "30"))
-EMBED_DIM = int(os.environ.get("SIAMESE_EMBED_DIM", "256"))
-
-# lazy model loader
-_siamese = None
-def _get_model():
-    global _siamese
-    if _siamese is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        _siamese = load_siamese_model(MODEL_PATH, device=device, in_channels=IN_CHANNELS, embed_dim=EMBED_DIM)
-    return _siamese
-
-def _make_heatmap(a_full, b_full):
-        """
-        Heatmapa pokazująca realne różnice pikselowe.
-        a_full, b_full: tensory (C,H,W) w przestrzeni obrazu [0..1]
-        """
-        import numpy as np
-        from skimage.transform import resize
-
-        # konwersja tensorów na numpy
-        a = a_full.detach().cpu().numpy()
-        b = b_full.detach().cpu().numpy()
-
-        # bierzemy tylko kanały RGB (pierwsze 3)
-        a = np.clip(a[:3], 0, 1)
-        b = np.clip(b[:3], 0, 1)
-
-        # różnica per-pixel → jedna mapa
-        diff = np.abs(a - b).mean(axis=0)
-
-        # podbijamy kontrast (ważne!)
-        diff = diff ** 0.5     # gamma
-        diff = diff / (diff.max() + 1e-9)
-
-        # powiększamy do 256x256
-        heat = resize(diff, (256, 256))
-
-        return heat
-
 
 @steganography_bp.route("/stegano/siamese", methods=["POST"])
 def stegano_siamese():
     """
     Compare two images using trained SiameseMulti network.
-    Input: multipart form-data with 'original' and 'suspicious' files.
-    Output: JSON variant B:
-      {
-        "status":"success",
-        "score": float (0..1),
-        "threshold": float,
-        "stego_detected": bool,
-        "confidence": float (0..1),
-        "heatmap_siamese": "data:image/png;base64,..." or None
-      }
+    Output: JSON z polami 'score', 'threshold', 'stego_detected', 'confidence', 'heatmap_siamese'.
     """
     try:
         if "original" not in request.files or "suspicious" not in request.files:
@@ -181,47 +233,61 @@ def stegano_siamese():
         orig = request.files["original"]
         susp = request.files["suspicious"]
 
-        # prepare tensors (batched)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        a_full_t, a_patch_t, b_full_t, b_patch_t = prepare_pair_batch(orig, susp, device=device, use_srm=True)
-        # ensure shapes: (1, C, H, W)
-
+        # 1. Ładowanie i weryfikacja modelu
         model = _get_model()
         if model is None:
-            return jsonify({"error": "Siamese model not available on server."}), 500
+            # Zwracamy szczegółowy błąd z globalnej zmiennej.
+            error_message = _SIAMESE_MODEL_ERROR if _SIAMESE_MODEL_ERROR else f"Siamese model not initialized. Sprawdź, czy plik wagi pod {MODEL_PATH} jest poprawny."
+            return jsonify({"status": "error", "error": error_message}), 500
+        
+        device = next(model.parameters()).device # Użyj urządzenia, na którym jest model
 
+        # 2. Przygotowanie tensorów (batch=1, C=30, H, W).
+        a_full_t, a_patch_t, b_full_t, b_patch_t = prepare_pair_batch(orig, susp, device=device, use_srm=True)
+
+        # KROK 3: KOREKTA KANAŁÓW (konieczna dla modelu 12-kanałowego!)
+        # Tensor wejściowy ma 30 kanałów, ale model tylko 12. Musimy obciąć.
+        a_full_t = a_full_t[:, :12, :, :]
+        b_full_t = b_full_t[:, :12, :, :]
+        a_patch_t = a_patch_t[:, :12, :, :]
+        b_patch_t = b_patch_t[:, :12, :, :]
+
+
+        # 4. Inferencia
         with torch.no_grad():
             out, ea, eb = model(a_full_t, a_patch_t, b_full_t, b_patch_t)
-            score = float(out.cpu().numpy()[0])  # 0..1 ; larger -> more likely stego (per training head)
-            distance = float(torch.norm(ea - eb, p=2, dim=1).cpu().numpy()[0])
+            score = float(out.cpu().numpy()[0])
 
         stego_detected = bool(score >= THRESHOLD)
-        confidence = float(score)  # choose to expose score as confidence; alternative: abs(score-threshold)
+        confidence = float(score)  
 
-        # try create heatmap
+        # 5. Generowanie Heatmapy (Wizualizacja)
         heat = None
         try:
-            heat_arr = _make_heatmap(a_full_t[0].cpu(), b_full_t[0].cpu())
+            # Używamy 12 obciętych kanałów, które weszły do modelu
+            heat_arr = _make_heatmap(a_full_t[0].cpu(), b_full_t[0].cpu()) 
+            
             if heat_arr is not None:
-                # convert heat to PNG in-memory
-                import matplotlib
-                matplotlib.use('Agg')
-                import matplotlib.pyplot as plt
+                # Konwersja macierzy heatmapy na PNG w pamięci
                 fig = plt.figure(frameon=False)
-                fig.set_size_inches(4,4)
-                ax = plt.Axes(fig, [0.,0.,1.,1.])
+                fig.set_size_inches(4, 4)
+                ax = plt.Axes(fig, [0., 0., 1., 1.])
                 ax.set_axis_off()
                 fig.add_axes(ax)
                 ax.imshow(heat_arr, cmap='magma')
+                
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png', dpi=100, bbox_inches='tight', pad_inches=0)
                 plt.close(fig)
+                
                 buf.seek(0)
                 img_bytes = buf.read()
                 heat = "data:image/png;base64," + base64.b64encode(img_bytes).decode('ascii')
-        except Exception:
+        except Exception as e:
+            print(f"Error generating heatmap: {e}")
             heat = None
 
+        # 6. Zwrot wyników
         response = {
             "status": "success",
             "score": score,
@@ -233,5 +299,6 @@ def stegano_siamese():
         return jsonify(response), 200
 
     except Exception as e:
+        # Złapanie każdego innego błędu (np. podczas przygotowywania danych)
         traceback.print_exc()
-        return jsonify({"error": f"Siamese analysis failed: {str(e)}"}), 500
+        return jsonify({"status": "error", "error": f"Siamese analysis failed during inference or preprocessing: {str(e)}"}), 500

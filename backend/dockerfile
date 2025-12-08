@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- 📁 3. Ustawienia katalogu roboczego ----
-WORKDIR /app
+WORKDIR /backend
 
 # ---- 📦 4. Kopiuj requirements osobno ----
 COPY requirements.txt .

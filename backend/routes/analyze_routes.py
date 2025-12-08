@@ -122,8 +122,8 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) 
 ])
 
-# Próg dla uśrednionej predykcji (można dostosować, np. do 0.5)
-BEST_THR = 0.55 
+# Próg dla uśrednionej predykcji (zmieniono na stałe 0.5 zgodnie z instrukcją)
+BEST_THR = 0.54
 
 # =================================================================
 # 🔍 Endpoint: analiza NUA (UŻYCIE UPROSZCZONEGO ENSEMBLE: CNN + SVM)
@@ -169,25 +169,28 @@ def analyze_nua_simplified():
     # ------------------
     # WYNIK I KONFIDENCJA
     # ------------------
+    
+    # Zgodnie z instrukcją: Ograniczenie prawdopodobieństwa do zakresu [0.0, 1.0]
     prob = max(0.0, min(1.0, ensemble_prob))
     
+    # Zgodnie z instrukcją: Użycie stałego progu BEST_THR = 0.5
     threshold = BEST_THR
     detected = prob > threshold
     
-    # Obliczenie konfidencji
+    # Obliczenie konfidencji (z zachowaniem oryginalnej logiki, ale użyciem nowego progu)
+    # Oryginalny współczynnik k został zachowany
     k = 1.5
     if prob < threshold:
         # Konfidencja w brak NUA (klasa 0)
+        # Używamy prob, które jest już ograniczone do [0, 1]
         confidence = (threshold - prob) / threshold * 100.0
     else:
         # Konfidencja w obecność NUA (klasa 1)
+        # Używamy prob, które jest już ograniczone do [0, 1]
         confidence = (prob - threshold) / (1 - threshold) * 100.0
 
     confidence = round(confidence * k, 2)
     
-    # Zmieniono nazwę funkcji endpointu z analyze_nua_ensemble na analyze_nua_simplified, 
-    # aby odzwierciedlić uproszczoną logikę. Jeśli używasz tego endpointu pod adresem /nua, 
-    # upewnij się, że inne części aplikacji odwołują się do tej nazwy lub pozostaw oryginalną.
     return jsonify({
         "detected": bool(detected),
         "confidence": confidence

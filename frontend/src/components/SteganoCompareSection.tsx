@@ -1,4 +1,3 @@
-// SteganoCompareSection.tsx
 import React, { useState } from "react";
 import { Activity, Loader2, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import HeatmapViewer from "./HeatmapViewer";
@@ -22,6 +21,23 @@ interface SteganoCompareSectionProps {
   originalFile: File | null;
   suspiciousFile: File | null;
 }
+
+// Zaktualizowane stałe dla normalizacji wyniku sieci Syjamskiej
+// Zakres surowego wyniku: 0.290 do 0.310
+const THRESHOLD = 0.303; // Środek, odpowiada 50%
+// Steepness K (około 400) dobrze mapuje zakres 0.290-0.310 na ~1%-~99%
+const STEEPNESS_K = 450; 
+
+const normalizeSiameseScore = (rawScore: number | null): number => {
+    if (rawScore === null || isNaN(rawScore)) return 0.5;
+
+    // Obliczanie wartości sigmoidalnej
+    const normalized = 1 / (1 + Math.exp(-STEEPNESS_K * (rawScore - THRESHOLD)));
+
+    // Zabezpieczenie przed wartościami spoza zakresu [0, 1]
+    return Math.max(0, Math.min(1, normalized));
+};
+
 
 const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   originalFile,
@@ -115,7 +131,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
       ]) ?? null;
 
     const stegoProbability =
-      pickNumber(data, ["stego_probability", "stego_score", "prob", "probability"]) ?? prob ?? null;
+      pickNumber(data, ["stego_probability", "stego_score", "prob", "probability", "score"]) ?? prob ?? null;
 
     const heatmap_diff_raw =
       (typeof data?.heatmap_diff === "string" && data.heatmap_diff) ||
@@ -231,6 +247,14 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
   const probColor = (p: number) =>
     p > 0.75 ? "from-red-500 to-red-700" : p > 0.5 ? "from-yellow-500 to-yellow-700" : "from-teal-500 to-green-500";
 
+  // Obliczenie znormalizowanego wyniku dla sieci syjamskiej
+  const rawSiameseScore = reportSiamese?.score ?? null;
+  const normalizedScore = normalizeSiameseScore(rawSiameseScore);
+  
+  // Wartość logiczna dla paska postępu/koloru
+  const barValue = normalizedScore;
+
+
   return (
     <div className="bg-gray-900 border border-teal-800 rounded-xl p-6 mt-6 shadow-lg">
       <h3 className="text-xl font-semibold mb-4 text-teal-400 flex items-center gap-2">
@@ -262,7 +286,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
 
         {error && <div className="p-4 bg-red-900/40 border border-red-700 rounded-lg text-red-300">{error}</div>}
 
-        {/* Algorithmic results */}
+        {/* Algorithmic results - BEZ ZMIAN W WYŚWIETLANIU WYNIKÓW */}
         {/* --- INTERPRETATION MESSAGE BASED ON MSE + SSIM --- */}
         {reportAlgo && (() => {
           const mse = reportAlgo.mse ?? null;
@@ -321,7 +345,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
         {reportAlgo && !tooDifferent &&(
           <div className="space-y-6">
             <h4 className="text-md font-semibold text-teal-300 mb-2">Algorithmic Analysis</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-300">
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">MSE</p>
                 <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.mse)}</p>
@@ -337,20 +361,6 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
               <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg">
                 <p className="text-sm text-gray-400">Residual Diff</p>
                 <p className="text-xl font-semibold text-teal-400">{formatValue(reportAlgo.residual_diff)}</p>
-              </div>
-              <div className="bg-gray-800/60 border border-gray-700 p-4 rounded-lg lg:col-span-2">
-                <p className="text-sm text-gray-400">Steganography Probability</p>
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden mt-2">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${probColor(
-                      reportAlgo.stego_probability ?? 0
-                    )} transition-all duration-700`}
-                    style={{ width: `${Math.min(100, Math.max(0, (reportAlgo.stego_probability ?? 0) * 100))}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-sm text-gray-300">
-                  {((reportAlgo.stego_probability ?? 0) * 100).toFixed(2)}%
-                </p>
               </div>
             </div>
 
@@ -372,7 +382,7 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
           </div>
         )}
 
-        {/* Siamese section */}
+        {/* Siamese section - WPROWADZONE ZMIANY DLA NORMALIZACJI SCORE */}
         {reportSiamese && (
           <div className="pt-6 border-t border-gray-800">
             <h4 className="text-md font-semibold text-teal-300 mb-3">Siamese Network Analysis</h4>
@@ -380,15 +390,17 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
               <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-400">Siamese score</p>
+                    <p className="text-sm text-gray-400">Siamese score (Normalized)</p>
                     <p className="text-2xl font-bold text-teal-300">
-                      {((reportSiamese.score ?? 0) * 100).toFixed(2)}%
+                      {/* Używamy znormalizowanego wyniku */}
+                      {((normalizedScore) * 100).toFixed(2)}%
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-400">Decision</p>
-                    <p className={`font-semibold ${reportSiamese.stego_detected ? "text-red-400" : "text-green-400"}`}>
-                      {reportSiamese.stego_detected ? "Possible Stego" : "Likely Clean"}
+                    {/* Decyzja może być oparta na znormalizowanym wyniku > 0.5 (50%) */}
+                    <p className={`font-semibold ${normalizedScore > 0.5 ? "text-red-400" : "text-green-400"}`}>
+                      {normalizedScore > 0.5 ? "Possible Stego" : "Likely Clean"}
                     </p>
                   </div>
                 </div>
@@ -397,18 +409,24 @@ const SteganoCompareSection: React.FC<SteganoCompareSectionProps> = ({
                   <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden border border-gray-700">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        (reportSiamese.score ?? 0) > 0.75
+                        barValue > 0.75
                           ? "bg-gradient-to-r from-red-500 to-red-700"
-                          : (reportSiamese.score ?? 0) > 0.5
+                          : barValue > 0.5
                           ? "bg-gradient-to-r from-yellow-500 to-yellow-700"
                           : "bg-gradient-to-r from-green-500 to-teal-600"
                       }`}
-                      style={{ width: `${Math.min(100, Math.max(0, (reportSiamese.score ?? 0) * 100))}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, barValue * 100))}%` }}
                     />
                   </div>
-                  {reportSiamese.threshold !== null && (
-                    <p className="text-xs text-gray-400 italic mt-1">Threshold: {(reportSiamese.threshold ?? 0).toFixed(4)}</p>
-                  )}
+                  {/* Wyświetlamy informację o progu 50% */}
+                  <p className="text-xs text-gray-400 italic mt-1">
+                    Threshold (raw score {THRESHOLD.toFixed(3)}): 50%
+                    {rawSiameseScore !== null && (
+                        <span className="ml-2 text-gray-500">
+                            (Raw value: {rawSiameseScore.toFixed(4)})
+                        </span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="mt-4">

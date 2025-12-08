@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 🌙 Styl ciemnego scrolla pasującego do dark mode */
+.custom-scroll::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: #0f172a; /* ciemny tor */
+  border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+  border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #14b8a6, #2dd4bf);
+}

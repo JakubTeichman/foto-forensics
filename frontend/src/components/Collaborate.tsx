@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 
-const Collaborate: React.FC = () => {
+interface CollaborateProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const Collaborate: React.FC<CollaborateProps> = ({ setActiveTab }) => {
   const [formData, setFormData] = useState({
     name: '',
     deviceModel: '',
@@ -9,10 +13,34 @@ const Collaborate: React.FC = () => {
     format: 'jpg',
   });
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_BASE}/collaborate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(result.message);
+        setActiveTab("nextTab"); // switch tab after successful submission
+      } else {
+        alert(result.error || "An error occurred while submitting the form.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Could not connect to the server.");
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto mt-8">
       <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400">
+        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Collaborate with Us
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
@@ -20,7 +48,7 @@ const Collaborate: React.FC = () => {
         </p>
       </div>
       <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           {[
             { label: 'Name', type: 'text', value: formData.name, key: 'name' },
             { label: 'Device Model', type: 'text', value: formData.deviceModel, key: 'deviceModel' },

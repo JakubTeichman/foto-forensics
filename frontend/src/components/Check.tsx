@@ -1,92 +1,326 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ImageUploader from './ImageUploader';
+import ChecksumPanel from './CheckSumPanel';
+import NUAReport from './NUAReport';
+import NoiseprintSection from './NoiseprintSection';
+import { Info } from "lucide-react";
 
-const Check: React.FC = () => {
+
+interface CheckProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const Check: React.FC<CheckProps> = ({ setActiveTab }) => {
   const [image1, setImage1] = useState<File | null>(null);
-  const [image2, setImage2] = useState<File | null>(null);
+  const [images2, setImages2] = useState<File[]>([]);
   const [previewUrl1, setPreviewUrl1] = useState<string | null>(null);
-  const [previewUrl2, setPreviewUrl2] = useState<string | null>(null);
-  const [similarity, setSimilarity] = useState<string | null>(null);
+  const [previewUrls2, setPreviewUrls2] = useState<string[]>([]);
+  const [similarity, setSimilarity] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<boolean>(false);
+  const [denoiseMethod, setDenoiseMethod] = useState<string>('bm3d');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showPceInfo, setShowPceInfo] = useState(false);
 
-  const bothUploaded = image1 && image2;
 
-  const handleCompare = async () => {
-    if (!image1 || !image2) return;
+  const bothUploaded = image1 && images2.length > 0;
+
+  useEffect(() => {
+    setActiveTab('check');
+  }, [setActiveTab]);
+
+  // ❌ USUWAMY auto-uruchamianie PRNU
+  // useEffect(() => {
+  //   if (bothUploaded) handleComparePRNU();
+  // }, [image1, images2]);
+
+  const handleComparePRNU = async () => {
+    if (!image1 || images2.length === 0) return;
+
+    setSimilarity(null);
+    setError(null);
+    setWarning(false);
+    setLoading(true);
 
     try {
       const formData = new FormData();
       formData.append('image1', image1);
-      formData.append('image2', image2);
+      images2.forEach((file) => formData.append('images2', file));
+      formData.append('denoise_method', denoiseMethod);
 
-      const response = await fetch('/compare', {
+      const response = await fetch('http://localhost:5000/compare-multiple', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      setSimilarity(`${(data.similarity * 100).toFixed(2)}%`);
+
+      if (data.similarity !== undefined) {
+        const numericValue = parseFloat(data.similarity);
+        setSimilarity(numericValue);
+        if (data.size_warning) setWarning(true);
+      } else {
+        setError('Nie udało się obliczyć korelacji.');
+      }
     } catch (error) {
       console.error('Error:', error);
-      setSimilarity('Błąd podczas przesyłania plików');
+      setError('Wystąpił błąd podczas porównywania obrazów.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const getPceColor = (value: number) => {
+    if (value < 20) return 'text-red-500';
+    if (value < 45) return 'text-orange-500';
+    if (value < 55) return 'text-amber-400';
+    if (value < 80) return 'text-yellow-400';
+    if (value < 95) return 'text-lime-400';
+    if (value >= 95) return 'text-green-400';
+    return 'text-emerald-400';
+  };
+
+  // Pobiera kolor dla zakresu opisanego w pceInterpretation
+  const getRangeColor = (range: string) => {
+    const testValue = (() => {
+      if (range.includes('≥')) return 95;
+      if (range.includes('>')) return 200;
+      if (range.includes('<')) return parseFloat(range.replace('<', '').trim());
+      return null;
+    })();
+
+    if (testValue === null) return 'text-gray-300';
+    return getPceColor(testValue);
+  };
+
+
+  // ===== Popover state & helpers (Option B — clickable popover) =====
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Use PointerEvent + pointerdown to handle both mouse and touch in a type-safe way
+    const onClickOutside = (e: PointerEvent) => {
+      if (infoRef.current && !infoRef.current.contains(e.target as Node)) {
+        setInfoOpen(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInfoOpen(false);
+    };
+
+    document.addEventListener('pointerdown', onClickOutside);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('pointerdown', onClickOutside);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, []);
+
+  const pceInterpretation = [
+    {
+      range: '< 20',
+      label: 'Definite mismatch',
+      desc: 'Very low correlation — strong indication these images are from different devices.',
+    },
+    {
+      range: '< 45',
+      label: 'Very low correlation',
+      desc: 'Low similarity — likely not the same device.',
+    },
+    {
+      range: '< 55',
+      label: 'Possible but inconclusive',
+      desc: 'Some similarity detected but insufficient evidence — may be due to too few or low-quality reference images.',
+    },
+    {
+      range: '< 80',
+      label: 'Moderate probability',
+      desc: 'Correlation suggests potential match; more diverse or additional reference images recommended.',
+    },
+    {
+      range: '< 95',
+      label: 'High probability',
+      desc: 'High likelihood that images originate from the same device.',
+    },
+    {
+      range: '≥ 95',
+      label: 'Strong confidence',
+      desc: 'Very strong evidence that images come from the same device — confidence increases with higher values.',
+    },
+    {
+      range: '> 200',
+      label: 'Near-certain / Unambiguous',
+      desc: 'Extremely high correlation — effectively indisputable match from the same sensor.',
+    },
+  ];
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto mt-8">
+      {/* 🔹 Nagłówek */}
       <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400">
+        <h2 className="text-5xl font-bold mb-4 pb-1 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-400 leading-tight">
           Image Comparison
         </h2>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-          Compare and analyze multiple images to detect differences and verify authenticity.
+          Compare and analyze multiple images to identify photo origin.
         </p>
       </div>
+
+      {/* 🔹 Uploadery */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ImageUploader
-          title="Original Image"
+          title="Evidence Image"
           previewUrl={previewUrl1}
           setPreviewUrl={setPreviewUrl1}
           setSelectedFile={setImage1}
           id="file1"
         />
+
         <ImageUploader
-          title="Comparison Image"
-          previewUrl={previewUrl2}
-          setPreviewUrl={setPreviewUrl2}
-          setSelectedFile={setImage2}
+          title="Reference Images"
+          multiple
+          previewUrls={previewUrls2}
+          setPreviewUrls={setPreviewUrls2}
+          setSelectedFiles={setImages2}
           id="file2"
+          maxVisible={8}
         />
       </div>
 
+      {/* 🔹 Sekcja PRNU */}
       {bothUploaded && (
-        <div className="mt-8 bg-gray-900 bg-opacity-50 rounded-xl p-6 border border-green-900">
-          <h3 className="text-xl font-medium mb-4 text-green-400">Comparison Report</h3>
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6">
-            <div className="space-y-2 text-gray-300">
-              <p>File Size Difference: 1.2 MB</p>
-              <p>Resolution Match: 100%</p>
-              <p>Color Profile: sRGB</p>
-            </div>
-            <div className="space-y-2 text-gray-300">
-              <p>Modified Regions: None detected</p>
-              <p>Compression Level: Similar</p>
-              <p>Similarity Score (PRNU): {similarity ?? '---'}</p>
-            </div>
-            <div>
-              <button
-                onClick={handleCompare}
-                className="bg-gradient-to-r from-teal-500 to-green-400 text-black font-bold px-6 py-2 rounded-lg hover:from-teal-600 hover:to-green-500 transition-all"
-              >
-                <i className="fas fa-balance-scale mr-2"></i> Porównaj
-              </button>
-            </div>
+        <div className="mt-10 bg-gray-900/80 rounded-2xl p-8 border border-green-800 shadow-lg shadow-green-900/20 backdrop-blur-md">
+          <h3 className="text-2xl font-semibold mb-6 text-green-400 tracking-wide">
+            PRNU Comparison Report
+          </h3>
+
+          {/* 🔧 Metoda odszumiania */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Select Denoising Method:
+            </label>
+            <select
+              value={denoiseMethod}
+              onChange={(e) => setDenoiseMethod(e.target.value)}
+              className="bg-gray-800/90 text-gray-200 border border-green-800 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none w-full"
+            >
+              <option value="bm3d">BM3D (High Accuracy)</option>
+              <option value="wavelet">Wavelet (Fast)</option>
+            </select>
           </div>
+
+          {/* 🔘 Przywrócony przycisk */}
+          <button
+            onClick={handleComparePRNU}
+            disabled={loading}
+            className={`${
+              loading
+                ? 'bg-gray-700 cursor-not-allowed opacity-70'
+                : 'bg-gradient-to-r from-teal-500 to-green-400 hover:from-teal-600 hover:to-green-500 shadow-lg shadow-green-800/30 hover:shadow-green-600/40'
+            } text-black font-extrabold px-8 py-3 rounded-xl text-lg transition-all transform hover:scale-[1.03]`}
+          >
+            {loading ? 'Processing...' : 'Compare PRNU'}
+          </button>
+
+          {/* ⚠️ Ostrzeżenie */}
+          {warning && (
+            <div className="mt-6 mb-8 p-5 rounded-2xl bg-amber-900/20 border border-amber-500/40 text-amber-300 text-sm font-medium backdrop-blur-md shadow-inner shadow-amber-900/30">
+              <span className="block text-base font-semibold mb-2 text-amber-400">
+                Resolution Mismatch Detected
+              </span>
+              Uploaded images have <strong>different resolutions</strong>, which may reduce precision
+              of the <span className="text-green-300 font-semibold">PRNU correlation</span> results.
+            </div>
+          )}
+
+          {/* 📊 Wyniki */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-8">
+            <div className="space-y-2 text-gray-300 text-sm md:text-base">
+              <p>
+                Resolution Match:{' '}
+                <span className={warning ? 'text-red-500 font-semibold' : 'text-green-400 font-semibold'}>
+                  {warning ? 'No' : 'Yes'}
+                </span>
+              </p>
+              <p>
+                Denoising Method:{' '}
+                <span className="text-teal-400 font-semibold">{denoiseMethod.toUpperCase()}</span>
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center justify-center min-w-[240px] min-h-[80px]">
+              {loading ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 border-4 border-t-green-400 border-gray-700 rounded-full animate-spin"></div>
+                  <p className="text-green-400 mt-3 text-sm font-medium">Analyzing...</p>
+                </div>
+              ) : (
+                <>
+                  {similarity !== null ? (
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-3">
+                        <p className={`text-3xl font-bold ${getPceColor(similarity)} drop-shadow-md`}>
+                          {similarity.toFixed(3)} <span className="text-gray-400 text-lg">PCE</span>
+                        </p>
+
+                        {/* 🔹 Info icon — działanie 1:1 jak w NoiseprintSection */}
+                        <button
+                          onClick={() => setShowPceInfo((prev) => !prev)}
+                          className="text-teal-400 hover:text-teal-200 transition"
+                          title="Interpretacja wartości PCE"
+                        >
+                          <Info size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 italic text-sm">No data yet</p>
+                  )}
+
+                  {error && <p className="text-red-400 font-semibold mt-2">{error}</p>}
+                </>
+              )}
+            </div>
+
+          </div>
+              {/* 🔽 Render interpretacji (bez popupu, 1:1 jak w NoiseprintSection) */}
+                      {showPceInfo && (
+                        <div className="mt-6 w-full bg-gray-900/70 p-4 shadow-inner shadow-black/20 backdrop-blur-md">
+
+                          <h4 className="text-lg font-semibold text-green-300 mb-3">PCE Interpretation</h4>
+
+                          <ul className="space-y-2 text-gray-300 text-sm">
+                            {pceInterpretation.map((item, index) => (
+                              <li
+                                key={index}
+                                className="p-2 rounded-lg bg-gray-800/60 border border-green-700/20"
+                              >
+                                <p className={`font-semibold ${getRangeColor(item.range)}`}>
+                                  {item.range} — {item.label}
+                                </p>
+                                <p className="text-gray-400 text-xs mt-1">{item.desc}</p>
+                              </li>
+                            ))}
+                          </ul>
+
+                        </div>
+                      )}
+
         </div>
       )}
+
+      {/* 🔹 Sekcja Noiseprint */}
+      {image1 && images2.length > 0 && (
+        <NoiseprintSection evidenceImage={image1} referenceImages={images2} />
+      )}
+
+      {/* 🔹 NUA Report */}
+      {image1 && <NUAReport imageFile={image1} referenceImages={images2} />}
+
+      {/* 🔹 Checksum Panel */}
+      {image1 && <ChecksumPanel files={[image1]} />}
     </div>
   );
 };

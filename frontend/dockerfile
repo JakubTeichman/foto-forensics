@@ -1,20 +1,19 @@
+# ===== FRONTEND DOCKERFILE =====
 FROM node:18
 
 WORKDIR /app
 
-# Kopiuj pliki konfiguracyjne
+# Kopiujemy package.json i package-lock.json jako pierwszy krok
 COPY package*.json ./
-COPY tsconfig.json ./
 
-# Instaluj zależności
-RUN npm install
+# Instalacja WSZYSTKICH zależności (jednorazowo)
+RUN npm install --force
 
-# Kopiuj kod źródłowy
+# Teraz dopiero kopiujemy resztę projektu
 COPY . .
 
-# Buduj aplikację
-RUN npm run build
-
+# Port aplikacji React
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Uruchomienie dev servera
+CMD ["npm", "start", "--", "--host", "0.0.0.0"]

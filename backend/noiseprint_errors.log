@@ -1,0 +1,172 @@
+[2025-11-10 18:37:10] 🪶 Image automatically downscaled from (3000, 2000) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 21:43:01] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 21:46:05] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 21:48:21] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 21:50:47] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 21:50:47] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 22:13:34] 🪶 Image automatically downscaled from (6000, 4000) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-10 22:21:23] 🪶 Image automatically downscaled from (5472, 3648) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:35:24] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:35:26] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:35:27] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:39] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:41] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:42] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:42] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-12 11:37:43] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 252, in compare_with_db
+    from add_reference import DeviceReference, deserialize_noiseprint
+ModuleNotFoundError: No module named 'add_reference'
+
+--------------------------------------------------------------------------------
+
+[2025-11-16 17:15:47] 🪶 Image automatically downscaled from (3468, 4624) to (2250, 2999) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-16 18:50:36] 🪶 Image automatically downscaled from (3468, 4624) to (2250, 2999) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-20 22:10:35] 🪶 Image automatically downscaled from (4896, 3264) to (3000, 2000) for stability
+--------------------------------------------------------------------------------
+
+[2025-11-20 22:25:56] ❌ Noiseprint comparison failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 156, in compare
+    evidence_tensor = preprocess_image(Image.open(evidence_file.stream))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/routes/noiseprint_routes.py", line 50, in preprocess_image
+    img_blur = cv2.GGaussianBlur(img, (3, 3), 0)
+               ^^^^^^^^^^^^^^^^^
+AttributeError: module 'cv2' has no attribute 'GGaussianBlur'
+
+--------------------------------------------------------------------------------
+
+[2025-11-21 06:57:16] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 291, in compare_with_db
+    evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: generate_noiseprint() missing 1 required positional argument: 'full_shape'
+
+--------------------------------------------------------------------------------
+
+[2025-11-21 06:57:19] ❌ Compare_with_db failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 291, in compare_with_db
+    evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: generate_noiseprint() missing 1 required positional argument: 'full_shape'
+
+--------------------------------------------------------------------------------
+
+[2025-11-21 06:57:56] ❌ Noiseprint comparison failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 196, in compare
+    evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: generate_noiseprint() missing 1 required positional argument: 'full_shape'
+
+--------------------------------------------------------------------------------
+
+[2025-11-21 06:58:08] ❌ Noiseprint comparison failed:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 196, in compare
+    evidence_np = local_normalize(generate_noiseprint(evidence_tensor))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: generate_noiseprint() missing 1 required positional argument: 'full_shape'
+
+--------------------------------------------------------------------------------
+
+[2025-12-03 07:01:52] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+
+[2025-12-03 07:01:54] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+
+[2025-12-03 07:01:54] ❌ Failed to open image:
+Traceback (most recent call last):
+  File "/app/routes/noiseprint_routes.py", line 125, in generate
+    img = Image.open(file.stream).convert("RGB")
+          ^^^^^
+NameError: name 'Image' is not defined
+
+--------------------------------------------------------------------------------
+

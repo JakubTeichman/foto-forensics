@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import ndimage
 
-# Wysokoprzepustowy filtr (High-Pass Filter)
 HPF = np.array([
     [-1,  2, -1],
     [ 2, -4,  2],

@@ -33,7 +33,6 @@ def image_dct_stats(img, block_size=8):
             ac = np.delete(ac, 0)
             ac_vals.extend(ac.tolist())
 
-    # fallback in case of empty lists
     if len(ac_vals) == 0:
         ac_vals = [0.0]
     if len(dc_vals) == 0:

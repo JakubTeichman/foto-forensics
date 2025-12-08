@@ -1,13 +1,8 @@
-# srm_filters.py
-# Handcrafted SRM-like filter bank generator (approximate).
-# Returns a torch.Tensor shape (N,1,h,w).
-
 import numpy as np
 import torch
 
 def make_srm_bank(num_filters=30):
     kernels = []
-    # base small filters
     kernels += [np.array([[0,0,0],[0,1,-1],[0,0,0]]),
                 np.array([[0,0,0],[0,1,0],[0,-1,0]]),
                 np.array([[0,0,0],[0,1,0],[-1,0,0]]),
@@ -33,11 +28,9 @@ def make_srm_bank(num_filters=30):
             kf = kf - kf.mean()
         arrs.append(kf)
 
-    # ensure all kernels same size (3x3) -> Nx1x3x3
     bank = np.stack([k for k in arrs])[:, None, :, :]
     return torch.from_numpy(bank).float()
 
-# convenience singleton
 _SRM_BANK = None
 def get_srm_bank(num_filters=30):
     global _SRM_BANK

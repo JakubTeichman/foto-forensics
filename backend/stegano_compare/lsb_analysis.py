@@ -10,20 +10,17 @@ def analyze_lsb(orig, susp):
       - lsb_diff_prop: proportion of differing LSB bits
       - lsb_diff_map: 2D binary map of differing bits (0/1)
     """
-    # --- sanitize input ---
     if orig is None or susp is None:
         return 0.0, np.zeros((1, 1))
     orig = np.nan_to_num(orig, nan=0.0, posinf=1.0, neginf=0.0)
     susp = np.nan_to_num(susp, nan=0.0, posinf=1.0, neginf=0.0)
 
-    # --- normalize + align shapes ---
     o = np.clip(orig * 255, 0, 255).astype(np.uint8)
     s = np.clip(susp * 255, 0, 255).astype(np.uint8)
 
     if o.shape != s.shape:
         s = resize(s, o.shape, anti_aliasing=False, preserve_range=True).astype(np.uint8)
 
-    # --- compute LSBs ---
     o_lsb = o & 1
     s_lsb = s & 1
 

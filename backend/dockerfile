@@ -1,7 +1,5 @@
-# ---- 🐍 1. Lżejsza baza z Pythonem ----
 FROM python:3.11-slim
 
-# ---- 🧩 2. Systemowe zależności ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libglib2.0-0 \
@@ -11,36 +9,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# ---- 📁 3. Ustawienia katalogu roboczego ----
 WORKDIR /backend
 
-# ---- 📦 4. Kopiuj requirements osobno ----
 COPY requirements.txt .
 
-# ---- ⚡ 5. Aktualizacja pip i instalacja zależności ----
 RUN pip install --upgrade pip setuptools wheel
 
-# 💡 instalacja PyTorch CPU
 RUN pip install torch==2.4.1+cpu torchvision==0.19.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 
-# 💡 instalacja pozostałych bibliotek
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ---- 📄 6. Skopiuj resztę projektu ----
 COPY . .
 
-# ---- 🧠 7. Ograniczenie liczby wątków ----
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 ENV OPENBLAS_NUM_THREADS=1
 
-# ---- ⚙️ 8. Flask Config ----
 ENV FLASK_APP=app:create_app
 ENV FLASK_ENV=development
 ENV FLASK_RUN_HOST=0.0.0.0
 
-# ---- 🚪 9. Otwórz port ----
 EXPOSE 5000
 
-# ---- ▶️ 10. Uruchom Flask ----
 CMD ["flask", "run", "--no-debugger", "--no-reload", "--without-threads"]

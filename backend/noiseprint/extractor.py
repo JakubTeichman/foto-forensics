@@ -55,30 +55,25 @@ def getNoiseprint(image_input, weights_dir="pretrained_weights"):
         if img.ndim == 3:
             img = img.mean(axis=2)
 
-        # Normalize to [0, 255]
         if img.max() <= 1.0:
             img *= 255.0
 
-        # Check for uniform image (very low variance)
         if np.std(img) < 1e-3:
             log_error("⚠️ Detected nearly uniform image. Adding small random noise to stabilize.")
             img = img + np.random.normal(0, 0.1, img.shape)
 
         transform = transforms.ToTensor()
 
-        # Try to read JPEG quality factor
         try:
             QF = jpeg_qtableinv(image_input)
         except Exception:
             QF = 101
 
-        # Load weights (fallback if not found)
         weight_path = f"{weights_dir}/model_qf{int(QF)}.pth"
         if not os.path.exists(weight_path):
             log_error(f"❗ Weights for QF={QF} not found. Falling back to model_qf101.pth.")
             weight_path = f"{weights_dir}/model_qf101.pth"
 
-        # Initialize model
         net = FullConvNet(0.9, False)
         net.load_state_dict(torch.load(weight_path, map_location="cpu"))
         net.eval()
@@ -86,12 +81,10 @@ def getNoiseprint(image_input, weights_dir="pretrained_weights"):
         tensor_image = transform(img).reshape(1, 1, img.shape[0], img.shape[1])
         tensor_image = tensor_image + 1e-8 * torch.randn_like(tensor_image)
 
-        # --- 1st attempt (original size) ---
         result = safe_infer(net, tensor_image)
         if result is not None:
             return img, result
 
-        # --- 2nd attempt: scale down if previous failed ---
         log_error("⚠️ First inference failed. Trying again with scaled-down image due to memory constraints.")
         MAX_SIZE = 2048
         if max(img.shape) > MAX_SIZE:

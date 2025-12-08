@@ -4,10 +4,8 @@ from dotenv import load_dotenv
 import os
 import pymysql
 
-# 🔹 Import rozszerzeń (unikamy cyklicznych importów)
 from extensions import db, mail
 
-# 🔹 Importy blueprintów
 from routes.analyze_routes import analyze_bp
 from routes.compare_routes import compare_bp
 from routes.steganography_routes import steganography_bp
@@ -17,14 +15,11 @@ from routes.add_reference import add_reference_bp
 
 
 def create_app():
-    # 🌐 Inicjalizacja aplikacji
     app = Flask(__name__)
     CORS(app)
 
-    # 📁 Wczytanie zmiennych środowiskowych
     load_dotenv()
 
-    # 💾 Konfiguracja bazy danych
     DB_USER = os.getenv("DB_USER", "forensics_user")
     DB_PASS = os.getenv("DB_PASS", "forensics_pass")
     DB_HOST = os.getenv("DB_HOST", "mysql")
@@ -34,7 +29,6 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # 📬 Konfiguracja maila
     app.config['MAIL_SERVER'] = 'smtp.gmail.com'
     app.config['MAIL_PORT'] = 587
     app.config['MAIL_USE_TLS'] = True
@@ -42,16 +36,13 @@ def create_app():
     app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = ('Foto Forensics', 'fotoforensics3@gmail.com')
 
-    # 🔗 Inicjalizacja rozszerzeń
     db.init_app(app)
     mail.init_app(app)
 
-    # 🧱 Tworzenie tabel w bazie, jeśli nie istnieją
     with app.app_context():
-        from models.model import Image  # Import wewnętrzny, żeby uniknąć cykli
+        from models.model import Image 
         db.create_all()
 
-    # 🧪 Endpoint testowy do sprawdzenia połączenia z bazą
     @app.route("/test-db")
     def test_db():
         try:
@@ -70,7 +61,6 @@ def create_app():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    # 📦 Rejestracja blueprintów
     app.register_blueprint(add_reference_bp)
     app.register_blueprint(analyze_bp, url_prefix="/analyze")
     app.register_blueprint(steganography_bp)
@@ -80,8 +70,6 @@ def create_app():
 
     return app
 
-
-# 🚀 Uruchomienie aplikacji
 if __name__ == "__main__":
     app = create_app()
     app.run(host="0.0.0.0", port=5000, debug=True)

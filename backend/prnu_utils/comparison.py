@@ -13,9 +13,8 @@ from pathlib import Path
 import numpy as np
 
 from .prnu_extraction import extract_prnu_from_path, extract_prnu_from_bytes
-from .io_helpers import download_to_tempfile  # pozostawiamy — Twój wcześniejszy helper
+from .io_helpers import download_to_tempfile 
 
-# --- korelacje --------------------------------------------------------------
 def _safe_zero_mean(a: np.ndarray) -> np.ndarray:
     a = a - a.mean()
     return a
@@ -53,7 +52,6 @@ def blockwise_ncc(a: np.ndarray, b: np.ndarray, block_size: int = 64, min_std: f
             if block_a.size == 0 or block_b.size == 0:
                 continue
             if block_a.std() < min_std or block_b.std() < min_std:
-                # pomijamy bloki bez informacji (np. jednolite)
                 continue
             scores.append(ncc(block_a, block_b))
     if not scores:
@@ -66,7 +64,7 @@ def multiscale_ncc(a: np.ndarray, b: np.ndarray, scales: Optional[List[float]] =
     Liczy NCC po kilku skalach (resize) i zwraca ważoną średnią.
     scales: lista współczynników skalowania (np. [1.0, 0.5, 0.25])
     """
-    import cv2  # zakładam, że masz opencv; jeśli nie, możemy użyć skimage.transform.resize
+    import cv2 
 
     if scales is None:
         scales = [1.0, 0.5, 0.25]
@@ -83,15 +81,12 @@ def multiscale_ncc(a: np.ndarray, b: np.ndarray, scales: Optional[List[float]] =
             bb = cv2.resize(b, (w, h), interpolation=cv2.INTER_AREA)
         score = ncc(aa, bb)
         scores.append(score)
-        # wagę dajemy większą dla większych rozdzielczości
         weights.append(s)
     weights = np.array(weights, dtype=np.float32)
     if weights.sum() == 0:
         return float(np.mean(scores))
     return float(np.dot(scores, weights) / weights.sum())
 
-
-# --- porównania i helpery ---------------------------------------------------
 def _image_quality_weight(img_prnu: np.ndarray) -> float:
     """
     Prosta heurystyka jakości obrazu do wagi przy uśrednianiu referencji.
@@ -109,7 +104,6 @@ def _weighted_average(refs: List[np.ndarray], weights: Optional[List[float]] = N
     """
     if not refs:
         raise ValueError("refs must not be empty")
-    # przytnij do wspólnego rozmiaru
     min_h = min(r.shape[0] for r in refs)
     min_w = min(r.shape[1] for r in refs)
     trimmed = [r[:min_h, :min_w] for r in refs]
@@ -121,9 +115,7 @@ def _weighted_average(refs: List[np.ndarray], weights: Optional[List[float]] = N
         if weights.shape[0] != arr.shape[0]:
             raise ValueError("weights length mismatch")
     weights = weights / (weights.sum() + 1e-12)
-    # ważona suma
     avg = np.tensordot(weights, arr, axes=(0, 0))
-    # normalizacja końcowa
     avg = avg - avg.mean()
     std = avg.std()
     if std < 1e-8:
@@ -150,7 +142,6 @@ def compare_prnu_paths(evidence_path: str,
     else:
         avg_ref = _weighted_average(refs, weights=None)
 
-    # jeśli rozmiary różne — przytnij obie do najmniejszego
     min_h = min(ev.shape[0], avg_ref.shape[0])
     min_w = min(ev.shape[1], avg_ref.shape[1])
     ev_c = ev[:min_h, :min_w]

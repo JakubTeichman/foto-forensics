@@ -17,13 +17,11 @@ def load_image_safe(path_or_file):
     returns image normalized to float [0,1], grayscale
     """
     try:
-        # Load using Pillow for better format handling
         if hasattr(path_or_file, "read"):
             img = Image.open(path_or_file)
         else:
             img = Image.open(str(path_or_file))
 
-        # Convert to RGB if RGBA or CMYK
         if img.mode in ("RGBA", "LA"):
             logging.info("Detected image with alpha channel — converting to RGB.")
             img = img.convert("RGB")
@@ -35,10 +33,8 @@ def load_image_safe(path_or_file):
 
         arr = np.array(img)
 
-        # Convert to float [0,1]
         arr = img_as_float(arr)
 
-        # Convert to grayscale
         gray = color.rgb2gray(arr)
 
         return gray

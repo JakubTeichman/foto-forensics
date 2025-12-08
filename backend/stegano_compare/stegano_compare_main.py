@@ -1,4 +1,3 @@
-# stegano_compare/stegano_compare_main.py
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
@@ -81,7 +80,6 @@ def analyze_images(original_path_or_file, suspicious_path_or_file, return_images
             heatmaps["residual_diff_map"] = save_heatmap_to_base64(fig2)
             plt.close(fig2)
 
-            # LSB map is binary; visualize with 'gray' cmap
             fig3 = make_heatmap_from_map(lsb_diff_map, title="LSB differences", cmap="gray")
             heatmaps["lsb_diff_map"] = save_heatmap_to_base64(fig3)
             plt.close(fig3)

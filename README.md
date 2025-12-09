@@ -47,6 +47,33 @@ docker-compose build
 Once running, the app will be available at:
   👉 http://localhost:3000
 
+---
+
+## 📁 Project Structure
+
+Below is a simplified overview of the project structure:
+
+```bash
+└── foto-forensics/
+    ├── backend/
+    │   ├── noiseprint/
+    │   ├── prnu_utils/
+    │   ├── routes/
+    │   ├── static/
+    │   ├── steganalysis/
+    │   ├── stegano_compare/
+    │   ├── app.py
+    │   └── dockerfile
+    ├── frontend/
+    │   ├── src/
+    │   │   ├── components/
+    │   │   ├── App.tsx
+    │   │   └── index.tsx
+    │   └── dockerfile
+    ├── models_trening/
+    └── docker-compose.yml
+```
+
 ## 🧠 About the Project
 
 **Foto Forensics** is a full-stack web application created as part of an **engineering thesis project** in the field of *Modern Technologies in Forensics*.  
